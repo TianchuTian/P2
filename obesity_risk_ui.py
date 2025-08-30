@@ -4,7 +4,7 @@ import pandas as pd
 import joblib
 
 # Load model and scaler
-model = joblib.load("model.pkl")
+model = joblib.load("xgb_obesity_model.pkl")
 scaler = joblib.load("scaler.pkl")
 
 # Page configuration
