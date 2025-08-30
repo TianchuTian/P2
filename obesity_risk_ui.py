@@ -1,72 +1,75 @@
+
 import streamlit as st
-import joblib
-import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+import joblib
 
 # Load model and scaler
-model = joblib.load("xgb_obesity_model.pkl")
+model = joblib.load("model.pkl")
 scaler = joblib.load("scaler.pkl")
 
-st.set_page_config(page_title="Obesity Risk Predictor", layout="centered")
+# Page configuration
+st.set_page_config(page_title="Obesity Risk Predictor", page_icon="🍔", layout="centered")
 
-# --- Custom Style ---
+# Custom CSS
 st.markdown("""
-    <style>
-        .main {
-            background-color: #f6f8fc;
-        }
-        .title-font {
-            font-size: 48px;
-            font-weight: bold;
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 10px;
-        }
-        .cute-subtitle {
-            font-family: 'Comic Sans MS', cursive, sans-serif;
-            font-size: 22px;
-            color: #7f8c8d;
-            text-align: center;
-            margin-bottom: 40px;
-        }
-        .section-title {
-            font-size: 26px;
-            font-weight: 600;
-            color: #34495e;
-            margin-top: 30px;
-            margin-bottom: 10px;
-        }
-        .footer {
-            font-size: 13px;
-            color: #bdc3c7;
-            text-align: center;
-            margin-top: 40px;
-        }
-    </style>
+<style>
+.title-font {
+    font-size: 48px;
+    font-weight: bold;
+    color: #2c3e50;
+    text-align: center;
+    font-family: 'Arial Rounded MT Bold', sans-serif;
+}
+.cute-subtitle {
+    font-size: 22px;
+    font-family: "Comic Sans MS", cursive, sans-serif;
+    color: #e17055;
+    text-align: center;
+    margin-bottom: 30px;
+}
+.section-title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #0984e3;
+    margin-top: 40px;
+}
+.footer {
+    margin-top: 60px;
+    text-align: center;
+    font-size: 14px;
+    color: #636e72;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # Title
 st.markdown('<div class="title-font">Obesity Risk Predictor</div>', unsafe_allow_html=True)
 st.markdown('<div class="cute-subtitle">Get a personalized obesity risk assessment based on your health habits.</div>', unsafe_allow_html=True)
 
-# Input
+# Input Section
 st.markdown('<div class="section-title">📝 Input Your Health Data</div>', unsafe_allow_html=True)
 
-# 1. Numerical inputs
-def validated_number(label, min_val, max_val, step=1.0):
-    value = st.number_input(f"{label} ({min_val} - {max_val})", min_value=min_val, max_value=max_val, step=step)
-    return value
+# Validated number input
+def validated_number(label, min_val, max_val, step=1.0, is_int=False):
+    value = st.number_input(
+        f"{label} ({min_val} - {max_val})",
+        min_value=int(min_val) if is_int else float(min_val),
+        max_value=int(max_val) if is_int else float(max_val),
+        value=int(min_val) if is_int else float(min_val),
+        step=1 if is_int else step
+    )
+    return int(value) if is_int else float(value)
 
-Age = validated_number("Age (years)", 14, 60)
-Weight = validated_number("Weight (kg)", 40, 150)
+# Numerical Inputs
+Age = validated_number("Age (years)", 14, 60, is_int=True)
+Weight = validated_number("Weight (kg)", 40, 150, is_int=True)
 FCVC = validated_number("Frequency of vegetable consumption (1=low, 3=high)", 1.0, 3.0, 0.1)
 NCP = validated_number("Number of main meals (1=low, 4=high)", 1.0, 4.0, 0.1)
 CH2O = validated_number("Water intake frequency (1=low, 3=frequent)", 1.0, 3.0, 0.1)
 FAF = validated_number("Physical activity frequency (0=none, 3=frequent)", 0.0, 3.0, 0.1)
 TUE = validated_number("Daily screen time (0=none, 2=high)", 0.0, 2.0, 0.1)
 
-# 2. Categorical inputs
+# Categorical Inputs
 Gender = st.selectbox("Gender", ["Male", "Female"])
 family_history_with_overweight = st.selectbox("Family history of overweight", ["yes", "no"])
 FAVC = st.selectbox("Do you consume high caloric food frequently?", ["yes", "no"])
@@ -75,7 +78,7 @@ CAEC = st.selectbox("Snacking frequency", ["no", "Sometimes", "Frequently", "Alw
 CALC = st.selectbox("Alcohol consumption", ["no", "Sometimes", "Frequently", "Always"])
 MTRANS = st.selectbox("Transportation method", ["Public_Transportation", "Automobile", "Walking", "Motorbike", "Bike"])
 
-# 3. Predict
+# Prediction logic
 if st.button("🔍 Predict Obesity Risk"):
     input_dict = {
         "Gender": 1 if Gender == "Male" else 0,
