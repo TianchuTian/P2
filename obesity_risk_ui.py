@@ -73,7 +73,6 @@ TUE = validated_number("Daily screen time (0=none, 2=high)", 0.0, 2.0, 0.1)
 Gender = st.selectbox("Gender", ["Male", "Female"])
 family_history_with_overweight = st.selectbox("Family history of overweight", ["yes", "no"])
 FAVC = st.selectbox("Do you consume high caloric food frequently?", ["yes", "no"])
-SMOKE = st.selectbox("Do you smoke?", ["yes", "no"])
 CAEC = st.selectbox("Snacking frequency", ["no", "Sometimes", "Frequently", "Always"])
 CALC = st.selectbox("Alcohol consumption", ["no", "Sometimes", "Frequently", "Always"])
 MTRANS = st.selectbox("Transportation method", ["Public_Transportation", "Automobile", "Walking", "Motorbike", "Bike"])
@@ -91,7 +90,6 @@ if st.button("🔍 Predict Obesity Risk"):
         "CH2O": CH2O,
         "FAF": FAF,
         "TUE": TUE,
-        "SMOKE": 1 if SMOKE == "yes" else 0,
         "CAEC_Always": 1 if CAEC == "Always" else 0,
         "CAEC_Frequently": 1 if CAEC == "Frequently" else 0,
         "CAEC_Sometimes": 1 if CAEC == "Sometimes" else 0,
