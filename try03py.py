@@ -141,7 +141,7 @@ with explanation_col:
                     # --- NARRATIVE GENERATION (This logic can be reused) ---
                     shap_df = pd.DataFrame({
                         'feature': feature_names,
-                        'shap_value': explanation_obj.values[0, :, predicted_class_index],
+                        'shap_value': explanation.values[0, :, predicted_class_index],
                         'feature_value': st.session_state.df_input_original.iloc[0].values
                     }).set_index('feature')
                     shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
