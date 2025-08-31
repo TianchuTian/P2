@@ -169,29 +169,34 @@ if st.session_state.prediction_result:
 
     # The "Explain" button is only shown AFTER a prediction is made.
     if st.button("📊 Explain Prediction"):
-        with st.spinner('Generating explanation, please wait...'):
-            try:
-                # Use the scaled input data we saved in the session state.
-                explainer = shap.Explainer(model)
-                shap_values = explainer(st.session_state.df_input_for_shap)
+        if st.session_state.prediction_code is None:
+            st.warning("Could not find a valid prediction to explain. Please click 'Predict Obesity Risk' first.")
+        else:
+            with st.spinner('Generating explanation, please wait...'):
+                try:
+                    # Use the scaled input data we saved in the session state.
+                    explainer = shap.Explainer(model)
+                    shap_values = explainer(st.session_state.df_input_for_shap)
                 
-                # Create a force plot, which is excellent for explaining single predictions.
-                # We need to capture the plot as a Matplotlib figure object.
-                predicted_class_index = st.session_state.prediction_code
-                #fig, ax = plt.subplots()
-                # Assuming the first class's explanation is representative or choose a specific one.
-                shap.force_plot(
-                    explainer.expected_value[predicted_class_index], 
-                    shap_values[predicted_class_index][0,:],
-                    st.session_state.df_input_for_shap.iloc[0,:],
-                    matplotlib=True, 
-                    show=False,
-                )
-                st.session_state.shap_plot = plt.gcf()
-                plt.tight_layout() # Adjust layout to prevent labels from overlapping.
+                    # Create a force plot, which is excellent for explaining single predictions.
+                    # We need to capture the plot as a Matplotlib figure object.
+                    predicted_class_index = st.session_state.prediction_code
+                    #fig, ax = plt.subplots()
+                    # Assuming the first class's explanation is representative or choose a specific one.
+                    shap.force_plot(
+                        explainer.expected_value[predicted_class_index], 
+                        shap_values[predicted_class_index][0,:],
+                        st.session_state.df_input_for_shap.iloc[0,:],
+                        matplotlib=True, 
+                        show=False,
+                    )
+                    st.session_state.shap_plot = plt.gcf()
+                    plt.tight_layout(pad=1.0)
+                    plt.savefig("shap_plot.png", bbox_inches='tight') # Also useful for debugging
+                    plt.close() # Close the plot to free up memory
 
-            except Exception as e:
-                st.error(f"Sorry, the explanation could not be generated: {e}")
+                except Exception as e:
+                    st.error(f"Sorry, the explanation could not be generated: {e}")
 
 # This block checks if a SHAP plot exists in the session state and displays it.
 if st.session_state.shap_plot:
