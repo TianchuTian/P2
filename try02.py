@@ -22,6 +22,17 @@ except FileNotFoundError:
     )
     st.stop()
 
+
+numeric_cols = ["Age", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
+
+# The mapping from integer encoding to string labels.
+label_mapping = {
+    0: "Insufficient_Weight", 1: "Normal_Weight", 2: "Overweight_Level_I",
+    3: "Overweight_Level_II", 4: "Obesity_Type_I", 5: "Obesity_Type_II",
+    6: "Obesity_Type_III"
+}
+
+
 # =============================================================================
 # 3. PAGE CONFIGURATION AND SESSION STATE INITIALIZATION
 # =============================================================================
@@ -88,16 +99,8 @@ if st.button("🔍 Predict Obesity Risk"):
     
     # Scale data for the model
     df_input_scaled = df_input.copy()
-    numeric_cols = ["Age", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
     df_input_scaled[numeric_cols] = scaler.transform(df_input_scaled[numeric_cols])
 
-    # Class label mapping
-    label_mapping = {
-        0: "Insufficient_Weight", 1: "Normal_Weight", 2: "Overweight_Level_I",
-        3: "Overweight_Level_II", 4: "Obesity_Type_I", 5: "Obesity_Type_II",
-        6: "Obesity_Type_III"
-    }
-    
     # Make prediction and save results to session state
     prediction_code = model.predict(df_input_scaled)[0]
     prediction_label = label_mapping.get(prediction_code, "Unknown")
