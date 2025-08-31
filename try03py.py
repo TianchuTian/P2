@@ -146,8 +146,7 @@ with explanation_col:
 
         if st.button("📊 Explain My Prediction", use_container_width=True):
             # This is the "narrative engine" that generates human-readable text.
-           
-             narrative_rules = [
+            narrative_rules = [
                 {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Low vegetable consumption', 'value_text': lambda v: f'Level {v:.1f}'},
                 {'feature': 'FCVC', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'High vegetable consumption', 'value_text': lambda v: f'Level {v:.1f}'},
                 {'feature': 'FAF', 'condition': lambda v: v < 1.0, 'type': 'risk', 'text': 'Low physical activity', 'value_text': lambda v: f'Level {v:.1f}'},
@@ -164,8 +163,6 @@ with explanation_col:
                 {'feature': 'MTRANS_Automobile', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Transport by automobile', 'value_text': lambda v: 'Yes'},
                 {'feature': 'MTRANS_Walking', 'condition': lambda v: v == 1, 'type': 'protective', 'text': 'Transport by walking', 'value_text': lambda v: 'Yes'},
             ]
-
-            
             with st.spinner('Analyzing your health profile...'):
                 # Generate and save the HTML scorecard to the session state
                 st.session_state.explanation_html = generate_health_card_html(st.session_state.df_input_original, narrative_rules)
