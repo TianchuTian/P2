@@ -136,19 +136,19 @@ if st.button("🔍 Predict Obesity Risk"):
     # Explain Prediction
 
     if st.button("📊 Explain Prediction"):
-    try:
-        st.write("Explaining prediction using SHAP...")
-        explainer = shap.Explainer(model)
-        shap_values = explainer(df_input)
-        st.write("Top Features:")
-        shap.plots.bar(shap_values)
+        try:
+            st.write("Explaining prediction using SHAP...")
+            explainer = shap.Explainer(model)
+            shap_values = explainer(df_input)
+            st.write("Top Features:")
+            shap.plots.bar(shap_values)
 
         # 可选 force_plot 展示
         # from streamlit_shap import st_shap
         # st_shap(shap.plots.force(shap_values[0]), height=300)
         
-    except Exception as e:
-        st.error(f"Explanation failed: {e}")
+        except Exception as e:
+            st.error(f"Explanation failed: {e}")
 
 
 # Footer
