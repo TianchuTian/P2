@@ -111,9 +111,23 @@ if st.button("🔍 Predict Obesity Risk"):
     numeric_cols = ["Age", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
     df_input[numeric_cols] = scaler.transform(df_input[numeric_cols])
 
+    # Define the mapping from encoding to tags
+    label_mapping = {
+    0: "Insufficient_Weight",
+    1: "Normal_Weight",
+    2: "Overweight_Level_I",
+    3: "Overweight_Level_II",
+    4: "Obesity_Type_I",
+    5: "Obesity_Type_II",
+    6: "Obesity_Type_III"
+    }
+    
     # Predict
     prediction = model.predict(df_input)[0]
 
+    # Map back to original tags
+    prediction_label = label_mapping.get(prediction, "Unknown")
+    
     st.success(f"✅ Your predicted obesity category is: **{prediction}**")
 
 # Footer
