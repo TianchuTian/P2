@@ -127,85 +127,100 @@ with main_col:
 # =============================================================================
 # 7. DISPLAY RESULTS AND LOCAL (TEXT) EXPLANATION
 # =============================================================================
+
 with explanation_col:
     st.markdown('<div class="section-title">💡 Prediction & Explanation</div>', unsafe_allow_html=True)
     if st.session_state.prediction_code is not None:
         st.success(f"✅ Your predicted obesity category is: **{st.session_state.prediction_label}**")
 
         if st.button("📊 Explain My Prediction", use_container_width=True):
-            # The translator dictionary to convert feature values to human-readable text.
+            # --- UPGRADED FEATURE TRANSLATOR for more narrative phrases ---
             feature_translator = {
-                'Weight': {'name': 'Your weight', 'map': lambda v: f"({v:.0f} kg)"},
-                'Age': {'name': 'Your age', 'map': lambda v: f"({v:.0f} years old)"},
-                'FCVC': {'name': 'Your vegetable consumption', 'map': lambda v: "is low" if v < 1.5 else ("is moderate" if v < 2.5 else "is high")},
-                'FAF': {'name': 'Your physical activity frequency', 'map': lambda v: "is low" if v < 1.5 else ("is moderate" if v < 2.5 else "is high")},
-                'family_history_with_overweight': {'name': 'A family history of overweight', 'map': lambda v: "" if v == 1 else None},
-                'FAVC': {'name': 'Frequent consumption of high-caloric food', 'map': lambda v: "" if v == 1 else None},
-                'NCP': {'name': 'Your number of main meals', 'map': lambda v: "is low" if v < 2.5 else "is normal"},
-                'CH2O': {'name': 'Your daily water intake', 'map': lambda v: "is low" if v < 1.5 else "is adequate"},
-                'TUE': {'name': 'Your screen time', 'map': lambda v: "is short" if v < 1.0 else "is long"},
-                'CAEC_Sometimes': {'name': 'Your snacking habit', 'map': lambda v: "is 'Sometimes'" if v == 1 else None},
-                'CAEC_Frequently': {'name': 'Your snacking habit', 'map': lambda v: "is 'Frequently'" if v == 1 else None},
-                'CAEC_Always': {'name': 'Your snacking habit', 'map': lambda v: "is 'Always'" if v == 1 else None},
-                'MTRANS_Automobile': {'name': 'Your primary transport', 'map': lambda v: "is Automobile" if v == 1 else None},
-                'MTRANS_Public_Transportation': {'name': 'Your primary transport', 'map': lambda v: "is Public Transportation" if v == 1 else None},
+                'Weight': lambda v: f"a weight of **{v:.0f} kg**",
+                'Age': lambda v: f"an age of **{v:.0f} years**",
+                'FCVC': lambda v: "a **low** frequency of vegetable consumption" if v < 1.5 else ("a **moderate** vegetable consumption" if v < 2.5 else "a **high** vegetable consumption"),
+                'FAF': lambda v: "a **low** frequency of physical activity" if v < 1.5 else ("a **moderate** amount of physical activity" if v < 2.5 else "a **high** amount of physical activity"),
+                'family_history_with_overweight': lambda v: "a **family history of overweight**" if v == 1 else None,
+                'FAVC': lambda v: "the **frequent consumption of high-caloric food**" if v == 1 else None,
+                'NCP': lambda v: "a **low** number of main meals" if v < 2.5 else "a **normal** number of main meals",
+                'CH2O': lambda v: "**low** daily water intake" if v < 1.5 else "**adequate** daily water intake",
+                'TUE': lambda v: "**short** daily screen time" if v < 1.0 else "**long** daily screen time",
+                'CAEC_Sometimes': lambda v: "a habit of **sometimes snacking**" if v == 1 else None,
+                'CAEC_Frequently': lambda v: "a habit of **frequently snacking**" if v == 1 else None,
             }
 
             with st.spinner('Analyzing the reasons for your prediction...'):
                 try:
-                    # Prepare scaled data for SHAP.
                     df_scaled = pd.DataFrame(st.session_state.df_input_original, columns=feature_names)
                     df_scaled[numeric_cols] = scaler.transform(df_scaled[numeric_cols])
-
+                    
                     explainer = shap.Explainer(model)
                     shap_values = explainer.shap_values(df_scaled)
                     
                     predicted_class_index = st.session_state.prediction_code
                     
-                    # Create a DataFrame to analyze SHAP values and original feature values.
                     shap_df = pd.DataFrame(
-                        shap_values[0, :, predicted_class_index], # Slice correctly for the predicted class
+                        shap_values[0, :, predicted_class_index],
                         index=feature_names,
                         columns=['shap_value']
                     )
                     shap_df['feature_value'] = st.session_state.df_input_original.iloc[0].values
                     
-                    # Identify the top risk and protective factors.
-                    risk_factors = shap_df[shap_df['shap_value'] > 0.01].sort_values('shap_value', ascending=False).head(3)
-                    protective_factors = shap_df[shap_df['shap_value'] < -0.01].sort_values('shap_value', ascending=True).head(1)
-                    
-                    # Build the explanation text dynamically.
-                    explanation = f"The model predicted your risk category as **{st.session_state.prediction_label}**.\n\n"
-                    
-                    if not risk_factors.empty:
-                        explanation += "The main **risk factors** contributing to this prediction are:\n"
-                        for feature, row in risk_factors.iterrows():
-                            if feature in feature_translator:
-                                translation = feature_translator[feature]
-                                value_text = translation['map'](row['feature_value'])
-                                if value_text is not None:
-                                    explanation += f"- **{translation['name']}** {value_text}\n"
+                    risk_factors_df = shap_df[shap_df['shap_value'] > 0.01].sort_values('shap_value', ascending=False)
+                    protective_factors_df = shap_df[shap_df['shap_value'] < -0.01].sort_values('shap_value', ascending=True)
 
-                    if not protective_factors.empty:
-                        explanation += "\nOn the other hand, the main **protective factor** is:\n"
-                        for feature, row in protective_factors.iterrows():
-                            if feature in feature_translator:
-                                translation = feature_translator[feature]
-                                value_text = translation['map'](row['feature_value'])
-                                if value_text is not None:
-                                    explanation += f"- **{translation['name']}** {value_text}\n"
+                    # --- NEW NARRATIVE GENERATION LOGIC ---
+                    pred_label = st.session_state.prediction_label
+                    
+                    # 1. Opening statement
+                    explanation = f"Based on the information you provided, the model predicted your risk category as **{pred_label}**.\n\n"
+                    
+                    # 2. Identify and describe the primary driver
+                    if not risk_factors_df.empty:
+                        primary_driver_name = risk_factors_df.index[0]
+                        primary_driver_value = risk_factors_df.iloc[0]['feature_value']
+                        
+                        # Try to find a secondary driver for more context
+                        secondary_driver_name = risk_factors_df.index[1] if len(risk_factors_df) > 1 else None
+                        
+                        if primary_driver_name in ['Weight', 'Age'] and secondary_driver_name in ['Weight', 'Age']:
+                            # Create the contextual opening like "For your age, your weight is..."
+                            age_val = st.session_state.df_input_original['Age'].iloc[0]
+                            weight_val = st.session_state.df_input_original['Weight'].iloc[0]
+                            explanation += f"For an individual of **{age_val:.0f} years old**, a weight of **{weight_val:.0f} kg** was the most significant factor leading to the '{pred_label}' prediction. "
+                        else:
+                            # Generic but still strong opening
+                            primary_driver_text = feature_translator.get(primary_driver_name, lambda v: primary_driver_name)(primary_driver_value)
+                            explanation += f"The most significant factor leading to this prediction was **{primary_driver_text}**. "
+                    
+                    # 3. List other contributing factors
+                    other_risk_factors = risk_factors_df.iloc[1:] # Skip the primary one if it was already used
+                    if not other_risk_factors.empty:
+                        explanation += "Other contributing risk factors include:\n"
+                        for feature, row in other_risk_factors.head(2).iterrows(): # List up to 2 more
+                             if feature in feature_translator:
+                                text = feature_translator[feature](row['feature_value'])
+                                if text:
+                                    explanation += f"- {text.capitalize()}\n"
 
+                    # 4. Mention protective factors
+                    if not protective_factors_df.empty:
+                        explanation += "\nOn the other hand, some habits are helping to lower your risk. The main protective factor is:\n"
+                        for feature, row in protective_factors_df.head(1).iterrows():
+                            if feature in feature_translator:
+                                text = feature_translator[feature](row['feature_value'])
+                                if text:
+                                    explanation += f"- {text.capitalize()}\n"
+                                    
                     st.session_state.explanation_text = explanation
 
                 except Exception as e:
                     st.error(f"Sorry, the explanation could not be generated: {e}")
         
-        # Display the text if it has been generated.
         if st.session_state.explanation_text:
             st.info(st.session_state.explanation_text)
     else:
         st.info("Please input your data and click 'Predict' to see the results.")
-
 
 # =============================================================================
 # 8. GLOBAL EXPLANATION (NEW SECTION)
