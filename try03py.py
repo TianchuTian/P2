@@ -6,7 +6,6 @@ import pandas as pd
 import joblib
 import shap
 import matplotlib.pyplot as plt
-import plotly.graph_objects as go
 
 # =============================================================================
 # 2. LOAD ARTIFACTS (MODEL, SCALER, FEATURE NAMES, AND DATA)
@@ -34,66 +33,55 @@ label_mapping = {
 }
 
 # --- NEW: Function to generate the personalized Health Dashboard plot ---
-def generate_health_dashboard(df_input, rules):
+def generate_health_card_html(df_input, rules):
     """
-    Generates a Plotly figure that acts as a health dashboard based on user inputs.
+    Generates a clean, readable HTML table to act as a health scorecard.
     """
-    dashboard_data = []
+    card_html = """
+    <style>
+        .card { border-radius: 10px; padding: 15px; background-color: #f8f9fa; }
+        .card-title { font-weight: bold; font-size: 20px; color: #333; margin-bottom: 15px; }
+        .habit-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef; }
+        .habit-icon { font-size: 24px; margin-right: 15px; }
+        .habit-text { flex-grow: 1; color: #555; }
+        .habit-value { font-weight: bold; color: #000; }
+        .risk { color: #e74c3c; }
+        .protective { color: #2ecc71; }
+    </style>
+    <div class="card">
+        <div class="card-title">Your Personalized Health Habits Scorecard</div>
+    """
+    
+    evaluated_items = []
     
     # Iterate through rules to evaluate each user input
     for rule in rules:
         feature = rule['feature']
         value = df_input.iloc[0][feature]
         
-        # Check if the condition is met
         if rule['condition'](value):
-            status = 'Risk' if rule['type'] == 'risk' else 'Healthy'
-            color = '#ff6b6b' if status == 'Risk' else '#68d391'
-            icon = '⚠️' if status == 'Risk' else '✅'
-            description = rule['text'].split(',')[0] # Get the first part of the rule text for the label
-            dashboard_data.append({'Category': rule.get('category', 'Lifestyle'), 'Habit': description, 'Status': icon, 'Color': color})
+            is_risk = rule['type'] == 'risk'
+            icon = '⚠️' if is_risk else '✅'
+            css_class = 'risk' if is_risk else 'protective'
             
-    if not dashboard_data:
-        return None
-
-    df_plot = pd.DataFrame(dashboard_data)
-
-    # Create the Plotly figure
-    fig = go.Figure()
-
-    for i, row in df_plot.iterrows():
-        fig.add_trace(go.Scatter(
-            x=[i], y=[1],
-            mode='markers+text',
-            marker=dict(color=row['Color'], size=20, symbol='circle'),
-            text=row['Status'],
-            textfont=dict(size=14, color='white'),
-            hoverinfo='text',
-            hovertext=row['Habit'],
-            name=row['Habit']
-        ))
-
-    fig.update_layout(
-        title='<b>Your Personalized Health Habits Dashboard</b>',
-        xaxis=dict(
-            tickmode='array',
-            tickvals=list(range(len(df_plot))),
-            ticktext=[f"<b>{row['Habit']}</b>" for i, row in df_plot.iterrows()],
-            showgrid=False,
-            zeroline=False,
-        ),
-        yaxis=dict(
-            showticklabels=False,
-            showgrid=False,
-            zeroline=False,
-            range=[-1, 3] # Provide some vertical space
-        ),
-        showlegend=False,
-        height=200,
-        margin=dict(l=10, r=10, t=40, b=10),
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
-    return fig
+            # Use the 'value_text' from the rule to show the user's actual input
+            value_display = rule.get('value_text', lambda v: f'{v}')(value)
+            
+            evaluated_items.append(f"""
+            <div class="habit-row">
+                <div class="habit-icon">{icon}</div>
+                <div class="habit-text">{rule['text']}</div>
+                <div class="habit-value {css_class}">{value_display}</div>
+            </div>
+            """)
+            
+    if not evaluated_items:
+        card_html += "<p>All habits are within the normal range.</p>"
+    else:
+        card_html += "".join(evaluated_items)
+        
+    card_html += "</div>"
+    return card_html
 
 # =============================================================================
 # 4. PAGE CONFIGURATION AND SESSION STATE INITIALIZATION
@@ -102,14 +90,11 @@ st.set_page_config(page_title="Obesity Risk Predictor", page_icon="🍔", layout
 
 if 'prediction_label' not in st.session_state:
     st.session_state.prediction_label = None
-if 'explanation_text' not in st.session_state:
-    st.session_state.explanation_text = None
-if 'health_dashboard' not in st.session_state:
-    st.session_state.health_dashboard = None
+if 'explanation_html' not in st.session_state:
+    st.session_state.explanation_html = None
 if 'df_input_original' not in st.session_state:
     st.session_state.df_input_original = None
     
-
 # =============================================================================
 # 5. UI: STYLING, TITLES, AND INPUT WIDGETS
 # =============================================================================
@@ -149,9 +134,7 @@ with main_col:
         prediction_code = model.predict(df_input_scaled)[0]
         st.session_state.prediction_label = label_mapping.get(prediction_code, "Unknown")
         st.session_state.df_input_original = df_input
-        st.session_state.explanation_text = None
-        st.session_state.health_dashboard = None
-
+        st.session_state.explanation_html = None
 
 # =============================================================================
 # 7. DISPLAY RESULTS AND LOCAL (TEXT) EXPLANATION
@@ -186,38 +169,19 @@ with explanation_col:
             
             with st.spinner('Analyzing your health profile...'):
                 # --- NEW: Generate dashboard and text simultaneously ---
-                st.session_state.health_dashboard = generate_health_dashboard(st.session_state.df_input_original, narrative_rules)
+                #st.session_state.health_dashboard = generate_health_dashboard(st.session_state.df_input_original, narrative_rules)
+                st.session_state.explanation_html = generate_health_card_html(st.session_state.df_input_original, narrative_rules)
                 
-                # --- Text generation logic (can be simplified or kept as is) ---
-                pred_label = st.session_state.prediction_label
-                age_val = st.session_state.df_input_original['Age'].iloc[0]
-                weight_val = st.session_state.df_input_original['Weight'].iloc[0]
-                
-                opening_statement = f"Based on the information you provided, the model predicted your risk category as **{pred_label}**.\n\n"
-                opening_statement += f"For an individual of **{age_val:.0f} years old** with a weight of **{weight_val:.0f} kg**, the following habits are the most noteworthy for your health profile:"
-                
-                risk_narratives = [rule['text'] for rule in narrative_rules if rule['type'] == 'risk' and rule['condition'](st.session_state.df_input_original.iloc[0][rule['feature']])]
-                protective_narratives = [rule['text'] for rule in narrative_rules if rule['type'] == 'protective' and rule['condition'](st.session_state.df_input_original.iloc[0][rule['feature']])]
-                
-                final_explanation = opening_statement
-                if risk_narratives:
-                    final_explanation += "\n\n**Areas for Improvement (Risk Factors):**\n" + "".join([f"- {text}\n" for text in risk_narratives])
-                if protective_narratives:
-                    final_explanation += "\n**Positive Habits to Maintain:**\n" + "".join([f"- {text}\n" for text in protective_narratives])
-                
-                st.session_state.explanation_text = final_explanation
+               
+            
 
-        # --- NEW DISPLAY LOGIC ---
-        # Display the dashboard first, then the text.
-        if st.session_state.health_dashboard:
-            st.plotly_chart(st.session_state.health_dashboard, use_container_width=True)
-        
-        if st.session_state.explanation_text:
-            st.info(st.session_state.explanation_text)
+# --- NEW DISPLAY LOGIC ---
+        # Display the HTML scorecard if it exists in the session state.
+        if st.session_state.explanation_html:
+            st.markdown(st.session_state.explanation_html, unsafe_allow_html=True)
             
     else:
         st.info("Please input your data and click 'Predict' to see the results.")
-            
 
 # =============================================================================
 # 9. FOOTER
