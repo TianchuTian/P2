@@ -160,7 +160,7 @@ with explanation_col:
                     gender_text = "female" if gender_code == 0 else "male"
                     opening_statement = f"Based on the information you provided, the model predicted your risk category as **{pred_label}**.\n\n"
                     if 'Weight' in ranked_features.index[:2] and 'Age' in ranked_features.index[:2]:
-                         opening_statement += f"For an individual of **{age_val:.0f} years old**, a weight of **{weight_val:.0f} kg** was the most significant factor leading to this prediction."
+                         opening_statement += f"For a **{age_val:.0f} years old {gender_text}**, a weight of **{weight_val:.0f} kg** was the most significant factor leading to this prediction."
                     else:
                         primary_driver_name = ranked_features.index[0]
                         primary_driver_text = primary_driver_name.replace("_", " ").title()
