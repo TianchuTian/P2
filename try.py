@@ -83,7 +83,7 @@ if st.button("🔍 Predict Obesity Risk"):
         "MTRANS_Walking": 1 if MTRANS == "Walking" else 0,
     }
 
-    df_input = pd.DataFrame([input_dict])[feature_names]
+    df_input = pd.DataFrame([input_dict])
     df_input_scaled = df_input.copy()
     numeric_cols = ["Age", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
     df_input_scaled[numeric_cols] = scaler.transform(df_input_scaled[numeric_cols])
