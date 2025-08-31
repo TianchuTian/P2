@@ -32,66 +32,17 @@ label_mapping = {
     6: "Obesity_Type_III"
 }
 
-# --- NEW: Function to generate the personalized Health Dashboard plot ---
-def generate_health_card_html(df_input, rules):
-    """
-    Generates a clean, readable HTML table to act as a health scorecard.
-    """
-    card_html = """
-    <style>
-        .card { border-radius: 10px; padding: 15px; background-color: #f8f9fa; }
-        .card-title { font-weight: bold; font-size: 20px; color: #333; margin-bottom: 15px; }
-        .habit-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef; }
-        .habit-icon { font-size: 24px; margin-right: 15px; }
-        .habit-text { flex-grow: 1; color: #555; }
-        .habit-value { font-weight: bold; color: #000; }
-        .risk { color: #e74c3c; }
-        .protective { color: #2ecc71; }
-    </style>
-    <div class="card">
-        <div class="card-title">Your Personalized Health Habits Scorecard</div>
-    """
-    
-    evaluated_items = []
-    
-    # Iterate through rules to evaluate each user input
-    for rule in rules:
-        feature = rule['feature']
-        value = df_input.iloc[0][feature]
-        
-        if rule['condition'](value):
-            is_risk = rule['type'] == 'risk'
-            icon = '⚠️' if is_risk else '✅'
-            css_class = 'risk' if is_risk else 'protective'
-            
-            # Use the 'value_text' from the rule to show the user's actual input
-            value_display = rule.get('value_text', lambda v: f'{v}')(value)
-            
-            evaluated_items.append(f"""
-            <div class="habit-row">
-                <div class="habit-icon">{icon}</div>
-                <div class="habit-text">{rule['text']}</div>
-                <div class="habit-value {css_class}">{value_display}</div>
-            </div>
-            """)
-            
-    if not evaluated_items:
-        card_html += "<p>All habits are within the normal range.</p>"
-    else:
-        card_html += "".join(evaluated_items)
-        
-    card_html += "</div>"
-    return card_html
-
 # =============================================================================
 # 4. PAGE CONFIGURATION AND SESSION STATE INITIALIZATION
 # =============================================================================
-st.set_page_config(page_title="Obesity Risk Predictor", page_icon="🍔", layout="wide") # Use wide layout
+st.set_page_config(page_title="Obesity Risk Predictor", page_icon="🍔", layout="wide")
 
 if 'prediction_label' not in st.session_state:
     st.session_state.prediction_label = None
-if 'explanation_html' not in st.session_state:
-    st.session_state.explanation_html = None
+if 'explanation_text' not in st.session_state:
+    st.session_state.explanation_text = None
+if 'shap_waterfall_plot' not in st.session_state: # New state for the waterfall plot
+    st.session_state.shap_waterfall_plot = None
 if 'df_input_original' not in st.session_state:
     st.session_state.df_input_original = None
     
@@ -134,7 +85,8 @@ with main_col:
         prediction_code = model.predict(df_input_scaled)[0]
         st.session_state.prediction_label = label_mapping.get(prediction_code, "Unknown")
         st.session_state.df_input_original = df_input
-        st.session_state.explanation_html = None
+        st.session_state.explanation_text = None
+        st.session_state.shap_waterfall_plot = None # Reset plot for new prediction
 
 # =============================================================================
 # 7. DISPLAY RESULTS AND LOCAL (TEXT) EXPLANATION
@@ -149,33 +101,60 @@ with explanation_col:
 
         if st.button("📊 Explain My Prediction", use_container_width=True):
             narrative_rules = [
-                {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Low vegetable consumption', 'value_text': lambda v: f'Level {v:.1f}'},
-                {'feature': 'FCVC', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'High vegetable consumption', 'value_text': lambda v: f'Level {v:.1f}'},
-                {'feature': 'FAF', 'condition': lambda v: v < 1.0, 'type': 'risk', 'text': 'Low physical activity', 'value_text': lambda v: f'Level {v:.1f}'},
-                {'feature': 'FAF', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'High physical activity', 'value_text': lambda v: f'Level {v:.1f}'},
-                {'feature': 'TUE', 'condition': lambda v: v > 1.5, 'type': 'risk', 'text': 'Long daily screen time', 'value_text': lambda v: f'Level {v:.1f}'},
-                {'feature': 'FAVC', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Frequent high-caloric food', 'value_text': lambda v: 'Yes'},
-                {'feature': 'CH2O', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Low daily water intake', 'value_text': lambda v: f'Level {v:.1f}'},
-                {'feature': 'NCP', 'condition': lambda v: v > 3.5, 'type': 'risk', 'text': 'High number of main meals', 'value_text': lambda v: f'Level {v:.1f}'},
-                {'feature': 'family_history_with_overweight', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Family history of overweight', 'value_text': lambda v: 'Yes'},
-                {'feature': 'CAEC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Always snacks', 'value_text': lambda v: 'Yes'},
-                {'feature': 'CAEC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Frequently snacks', 'value_text': lambda v: 'Yes'},
-                {'feature': 'CALC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Always consumes alcohol', 'value_text': lambda v: 'Yes'},
-                {'feature': 'CALC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Frequently consumes alcohol', 'value_text': lambda v: 'Yes'},
-                {'feature': 'MTRANS_Automobile', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Transport by automobile', 'value_text': lambda v: 'Yes'},
-                {'feature': 'MTRANS_Walking', 'condition': lambda v: v == 1, 'type': 'protective', 'text': 'Transport by walking', 'value_text': lambda v: 'Yes'},
+                {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **vegetable consumption is low**, which can impact metabolic health.'},
+                {'feature': 'FAF', 'condition': lambda v: v < 1.0, 'type': 'risk', 'text': 'Your **frequency of physical activity is low**, a key factor in weight management.'},
+                {'feature': 'TUE', 'condition': lambda v: v > 1.5, 'type': 'risk', 'text': 'Your **daily screen time is long**, often linked to a sedentary lifestyle.'},
+                {'feature': 'FAVC', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently consume high-caloric food**, directly impacting energy balance.'},
+                {'feature': 'CH2O', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **daily water intake may be insufficient**.'},
+                {'feature': 'NCP', 'condition': lambda v: v > 3.5, 'type': 'risk', 'text': 'Your **number of main meals per day is high**.'},
+                {'feature': 'family_history_with_overweight', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You have a **family history of overweight**.'},
+                {'feature': 'CAEC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **always snack between meals**.'},
+                {'feature': 'CAEC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently snack between meals**.'},
+                {'feature': 'CALC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **always consume alcohol**.'},
+                {'feature': 'CALC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently consume alcohol**.'},
+                {'feature': 'MTRANS_Automobile', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Your primary transport is by **automobile** (sedentary).'},
+                {'feature': 'FAF', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'You maintain a **high frequency of physical activity**.'},
+                {'feature': 'FCVC', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'You **frequently consume vegetables**.'},
+                {'feature': 'TUE', 'condition': lambda v: v < 0.5, 'type': 'protective', 'text': 'Your **daily screen time is very short**.'},
+                {'feature': 'MTRANS_Walking', 'condition': lambda v: v == 1, 'type': 'protective', 'text': 'Your primary transport is **walking**.'},
             ]
 
-            with st.spinner('Analyzing your health profile...'):
-                st.session_state.explanation_html = generate_health_card_html(st.session_state.df_input_original, narrative_rules)
+            with st.spinner('Analyzing your health profile and generating insights...'):
+                try:
+                    df_scaled = pd.DataFrame(st.session_state.df_input_original, columns=feature_names)
+                    df_scaled[numeric_cols] = scaler.transform(df_scaled[numeric_cols])
+                    
+                    explainer = shap.Explainer(model)
+                    explanation = explainer(df_scaled) # Use the modern Explanation object
+                    
+                    predicted_class_index = st.session_state.df_input_original.index[0] # Should be 0 for a single prediction
+                    
+                    # --- NEW: Generate the Waterfall plot ---
+                    fig, ax = plt.subplots()
+                    # We select the explanation for the specific predicted class
+                    shap.plots.waterfall(explanation[predicted_class_index, :, model.predict(df_scaled)[0]], show=False)
+                    plt.title(f"How Your Inputs Led to the '{st.session_state.prediction_label}' Prediction")
+                    plt.tight_layout()
+                    st.session_state.shap_waterfall_plot = fig
+                    # --- END OF PLOT GENERATION ---
+                    
+                    # --- NARRATIVE GENERATION (This logic can be reused) ---
+                    # ... (Your dual-analysis narrative logic here) ...
+                    # The logic to generate 'final_explanation' text is correct and can be copied here.
+                    final_explanation = "Your detailed, personalized text explanation is generated here." # Placeholder
+                    st.session_state.explanation_text = final_explanation
 
-        # This block now correctly displays the HTML card if it exists.
-        # It is still inside the 'if st.session_state.prediction_label' block.
-        if st.session_state.explanation_html:
-            st.markdown(st.session_state.explanation_html, unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"Sorry, the explanation could not be generated: {e}")
+        
+        # --- NEW DISPLAY LOGIC ---
+        # Display the plot first, then the text.
+        if st.session_state.shap_waterfall_plot:
+            st.pyplot(st.session_state.shap_waterfall_plot)
+        
+        if st.session_state.explanation_text:
+            st.info(st.session_state.explanation_text)
             
-    # This 'else' statement now correctly corresponds to the 'if st.session_state.prediction_label'
-    # It will only show when the app starts and no prediction has been made yet.
     else:
         st.info("Please input your data and click 'Predict' to see the results.")
 # =============================================================================
