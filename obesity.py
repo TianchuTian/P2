@@ -38,6 +38,10 @@ st.set_page_config(page_title="Obesity Risk Predictor", page_icon="🍔", layout
 # across script reruns, allowing us to "remember" the prediction results.
 if 'prediction_result' not in st.session_state:
     st.session_state.prediction_result = None
+if 'prediction_code' not in st.session_state:
+    st.session_state.prediction_code = None
+if 'prediction_label' not in st.session_state:
+    st.session_state.prediction_label = None
 if 'shap_plot' not in st.session_state:
     st.session_state.shap_plot = None
 if 'df_input_for_shap' not in st.session_state:
