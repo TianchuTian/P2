@@ -141,11 +141,13 @@ with main_col:
 # =============================================================================
 with explanation_col:
     st.markdown('<div class="section-title">💡 Prediction & Explanation</div>', unsafe_allow_html=True)
+    
+    # --- LOGIC FIX IS HERE ---
+    # First, check if a prediction has been made.
     if st.session_state.prediction_label:
         st.success(f"✅ Your predicted obesity category is: **{st.session_state.prediction_label}**")
 
         if st.button("📊 Explain My Prediction", use_container_width=True):
-            # This is the "narrative engine" that generates human-readable text.
             narrative_rules = [
                 {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Low vegetable consumption', 'value_text': lambda v: f'Level {v:.1f}'},
                 {'feature': 'FCVC', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'High vegetable consumption', 'value_text': lambda v: f'Level {v:.1f}'},
@@ -163,18 +165,19 @@ with explanation_col:
                 {'feature': 'MTRANS_Automobile', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Transport by automobile', 'value_text': lambda v: 'Yes'},
                 {'feature': 'MTRANS_Walking', 'condition': lambda v: v == 1, 'type': 'protective', 'text': 'Transport by walking', 'value_text': lambda v: 'Yes'},
             ]
+
             with st.spinner('Analyzing your health profile...'):
-                # Generate and save the HTML scorecard to the session state
                 st.session_state.explanation_html = generate_health_card_html(st.session_state.df_input_original, narrative_rules)
-                
-# --- NEW DISPLAY LOGIC ---
-        # Display the HTML scorecard if it exists in the session state.
+
+        # This block now correctly displays the HTML card if it exists.
+        # It is still inside the 'if st.session_state.prediction_label' block.
         if st.session_state.explanation_html:
             st.markdown(st.session_state.explanation_html, unsafe_allow_html=True)
             
+    # This 'else' statement now correctly corresponds to the 'if st.session_state.prediction_label'
+    # It will only show when the app starts and no prediction has been made yet.
     else:
         st.info("Please input your data and click 'Predict' to see the results.")
-
 # =============================================================================
 # 9. FOOTER
 # =============================================================================
