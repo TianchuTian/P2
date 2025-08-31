@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 try:
     model = joblib.load("xgb_obesity_model.pkl")
     scaler = joblib.load("scaler.pkl")
-    #feature_names = joblib.load("feature_names.pkl")
+    feature_names = model.feature_names_in_
 except FileNotFoundError:
     st.error(
         "Error: Model or helper files not found. "
