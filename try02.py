@@ -144,15 +144,13 @@ if st.session_state.prediction_code is not None:
                 # Use the scaled data for SHAP, as the model was trained on it.
                 df_scaled = pd.DataFrame(st.session_state.df_input_original, columns=feature_names)
                 df_scaled[numeric_cols] = scaler.transform(df_scaled[numeric_cols])
-
                 explainer = shap.Explainer(model)
                 shap_values = explainer.shap_values(df_scaled)
-                
-                predicted_class_index = st.session_state.prediction_code
+                shap_values_for_instance = shap_values[0]
                 
                 # Create a DataFrame to analyze SHAP values and original feature values.
                 shap_df = pd.DataFrame(
-                    shap_values[predicted_class_index][0],
+                    shap_values_for_instance
                     index=feature_names,
                     columns=['shap_value']
                 )
