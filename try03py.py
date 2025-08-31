@@ -139,16 +139,64 @@ with explanation_col:
                     # --- END OF PLOT GENERATION ---
                     
                     # --- NARRATIVE GENERATION (This logic can be reused) ---
-                    # ... (Your dual-analysis narrative logic here) ...
-                    # The logic to generate 'final_explanation' text is correct and can be copied here.
-                    final_explanation = "Your detailed, personalized text explanation is generated here." # Placeholder
+                    shap_df = pd.DataFrame({
+                        'feature': feature_names,
+                        'shap_value': explanation_obj.values[0, :, predicted_class_index],
+                        'feature_value': st.session_state.df_input_original.iloc[0].values
+                    }).set_index('feature')
+                    shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
+                    ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
+                    
+                    # 2. Generate the narrative text
+                    pred_label = st.session_state.prediction_label
+                    risk_narratives = []
+                    protective_narratives = []
+
+                    age_val = st.session_state.df_input_original['Age'].iloc[0]
+                    weight_val = st.session_state.df_input_original['Weight'].iloc[0]
+                    opening_statement = f"Based on the information you provided, the model predicted your risk category as **{pred_label}**.\n\n"
+                    if 'Weight' in ranked_features.index[:2] and 'Age' in ranked_features.index[:2]:
+                         opening_statement += f"For an individual of **{age_val:.0f} years old**, a weight of **{weight_val:.0f} kg** was the most significant factor leading to this prediction."
+                    else:
+                        primary_driver_name = ranked_features.index[0]
+                        primary_driver_text = primary_driver_name.replace("_", " ").title()
+                        opening_statement += f"Among your various inputs, **{primary_driver_text}** was the most impactful factor for this prediction."
+
+                    shap_driven_narratives = []
+                    mentioned_features = set()
+                    for feature, row in ranked_features.head(4).iterrows():
+                        is_risk = row['shap_value'] > 0
+                        for rule in narrative_rules:
+                            if rule['feature'] == feature:
+                                if (is_risk and rule['type'] == 'risk' and rule['condition'](row['feature_value'])) or \
+                                   (not is_risk and rule['type'] == 'protective' and rule['condition'](row['feature_value'])):
+                                    shap_driven_narratives.append(rule['text'])
+                                    mentioned_features.add(feature)
+                                    break
+                    
+                    other_narratives = []
+                    for rule in narrative_rules:
+                        feature = rule['feature']
+                        if feature not in mentioned_features and rule['condition'](st.session_state.df_input_original.iloc[0][feature]):
+                            other_narratives.append(rule['text'])
+                    
+                    final_explanation = opening_statement
+                    if shap_driven_narratives:
+                        final_explanation += "\n\n**Model's Key Insights (in order of impact):**\n"
+                        for text in shap_driven_narratives:
+                            final_explanation += f"- {text}\n"
+                    if other_narratives:
+                        final_explanation += "\n**Other Noteworthy Health Habits:**\n"
+                        for text in other_narratives:
+                            final_explanation += f"- {text}\n"
+                    
                     st.session_state.explanation_text = final_explanation
+                    # --- END OF NARRATIVE GENERATION ---
 
                 except Exception as e:
                     st.error(f"Sorry, the explanation could not be generated: {e}")
         
-        # --- NEW DISPLAY LOGIC ---
-        # Display the plot first, then the text.
+        # --- Display logic ---
         if st.session_state.shap_waterfall_plot:
             st.pyplot(st.session_state.shap_waterfall_plot)
         
