@@ -132,7 +132,7 @@ if st.session_state.prediction_code is not None:
                 
                 st.session_state.shap_plot = plt.gcf()
                 # Use bbox_inches to prevent labels from being cut off.
-                plt.tight_layout()
+                plt.tight_layout(pad=1.0)
                 # No need to save to file unless for debugging.
                 # plt.savefig("shap_plot.png", bbox_inches='tight') 
                 plt.close() # Close the plot to free up memory
