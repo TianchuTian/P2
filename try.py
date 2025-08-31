@@ -117,14 +117,14 @@ if st.session_state.prediction_code is not None:
             try:
                 explainer = shap.Explainer(model)
                 shap_values = explainer.shap_values(st.session_state.df_input_for_shap)
+                shap_values_for_instance = shap_values[0,:]
                 
-                predicted_class_index = st.session_state.prediction_code
                 base_value_for_plot = explainer.expected_value[0]
                 
                 # Plotting the SHAP force plot
                 shap.force_plot(
                     base_value_for_plot,
-                    shap_values[predicted_class_index][0,:],
+                    shap_values_for_instance,
                     st.session_state.df_input_for_shap.iloc[0,:],
                     matplotlib=True,
                     show=False
@@ -133,8 +133,6 @@ if st.session_state.prediction_code is not None:
                 st.session_state.shap_plot = plt.gcf()
                 # Use bbox_inches to prevent labels from being cut off.
                 plt.tight_layout(pad=1.0)
-                # No need to save to file unless for debugging.
-                # plt.savefig("shap_plot.png", bbox_inches='tight') 
                 plt.close() # Close the plot to free up memory
 
             except Exception as e:
