@@ -131,28 +131,25 @@ if st.button("🔍 Predict Obesity Risk"):
     # Map back to original tags
     prediction_label = label_mapping.get(prediction, "Unknown")
     
-    #st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
-    # Display in card style
-    st.markdown(
-        f"""
-        <div style='background-color:#e8f5e9;padding:20px;border-radius:10px;'>
-            <h4 style='color:#2e7d32;'>✅ Your predicted obesity category is:</h4>
-            <h2 style='color:#1b5e20;'>{prediction_label}</h2>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
+    st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
 
     # Explain Prediction
+
     if st.button("📊 Explain Prediction"):
+    try:
+        st.write("Explaining prediction using SHAP...")
         explainer = shap.Explainer(model)
         shap_values = explainer(df_input)
+        st.write("Top Features:")
+        shap.plots.bar(shap_values)
 
-        st.subheader("Top Contributing Features")
-        fig, ax = plt.subplots()
-        shap.plots.bar(shap_values[0], show=False)
-        st.pyplot(fig)
+        # 可选 force_plot 展示
+        # from streamlit_shap import st_shap
+        # st_shap(shap.plots.force(shap_values[0]), height=300)
+        
+    except Exception as e:
+        st.error(f"Explanation failed: {e}")
+
 
 # Footer
 st.markdown('<div class="footer">Made with ❤️ by Your AI Assistant</div>', unsafe_allow_html=True)
