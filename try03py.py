@@ -243,7 +243,7 @@ with st.expander("🔬 Show Model's Overall Feature Importance (Global Explanati
     It helps us understand the model's general behavior.
     """)
     # To make it faster, we use a sample of the data for the global plot.
-    fig = generate_global_shap_plot(model, X_original_for_sampling.sample(500, random_state=42))
+    fig = generate_global_shap_plot(model, X_original.sample(500, random_state=42))
     st.pyplot(fig)
     
 
