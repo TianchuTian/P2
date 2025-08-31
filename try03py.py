@@ -54,11 +54,12 @@ if 'explanation_text' not in st.session_state:
     st.session_state.explanation_text = None
 if 'df_input_original' not in st.session_state:
     st.session_state.df_input_original = None
+    
 
 # =============================================================================
 # 5. UI: STYLING, TITLES, AND INPUT WIDGETS
 # =============================================================================
-st.markdown("""<style>...your css...</style>""", unsafe_allow_html=True)
+st.markdown("""<style>...your css...</style>""", unsafe_allow_html=True) # Keeping this short
 st.markdown('<div class="title-font">Obesity Risk Predictor</div>', unsafe_allow_html=True)
 st.markdown('<div class="cute-subtitle">A personalized obesity risk assessment with model explanations.</div>', unsafe_allow_html=True)
 
@@ -67,16 +68,28 @@ main_col, explanation_col = st.columns([1, 1])
 
 with main_col:
     st.markdown('<div class="section-title">📝 Input Your Health Data</div>', unsafe_allow_html=True)
-    # Input widgets
+    
+    # Input widgets - THIS IS THE FULL, CORRECTED LIST
     Age = st.number_input("Age (years)", min_value=14, max_value=100, value=25, step=1)
     Weight = st.number_input("Weight (kg)", min_value=30.0, max_value=180.0, value=70.0, step=0.5)
-    # ... (rest of your input widgets) ...
+    FCVC = st.slider("Frequency of vegetable consumption (1=low, 3=high)", 1.0, 3.0, 2.0, 0.1)
+    NCP = st.slider("Number of main meals per day (1-4)", 1.0, 4.0, 3.0, 0.1)
+    CH2O = st.slider("Daily water intake (1=low, 3=high)", 1.0, 3.0, 2.0, 0.1)
+    FAF = st.slider("Physical activity frequency per week (0=none, 3=frequent)", 0.0, 3.0, 1.0, 0.1)
+    TUE = st.slider("Daily screen time (0=low, 2=high)", 0.0, 2.0, 1.0, 0.1)
+
+    Gender = st.selectbox("Gender", ["Male", "Female"])
+    family_history_with_overweight = st.selectbox("Family history of overweight", ["yes", "no"])
+    FAVC = st.selectbox("Do you consume high caloric food frequently?", ["yes", "no"])
+    CAEC = st.selectbox("Snacking frequency", ["no", "Sometimes", "Frequently", "Always"])
+    CALC = st.selectbox("Alcohol consumption", ["no", "Sometimes", "Frequently", "Always"])
     MTRANS = st.selectbox("Primary transportation method", ["Public_Transportation", "Automobile", "Walking", "Motorbike", "Bike"])
+
 
 # =============================================================================
 # 6. PREDICTION LOGIC
 # =============================================================================
-if main_col.button("🔍 Predict Obesity Risk", use_container_width=True):
+if st.button("🔍 Predict Obesity Risk", use_container_width=True):
     # ... (Your prediction logic here, same as before) ...
     pass # This logic is unchanged
 
