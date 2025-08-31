@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 try:
     model = joblib.load("xgb_obesity_model.pkl")
     scaler = joblib.load("scaler.pkl")
-    feature_names = joblib.load("feature_names.pkl")
+    #feature_names = joblib.load("feature_names.pkl")
 except FileNotFoundError:
     st.error(
         "Error: Model or helper files not found. "
@@ -84,7 +84,7 @@ if st.button("🔍 Predict Obesity Risk"):
         "MTRANS_Walking": 1 if MTRANS == "Walking" else 0,
     }
 
-    df_input = pd.DataFrame([input_dict])[feature_names]
+    df_input = pd.DataFrame([input_dict])
     
     # Scale data for the model
     df_input_scaled = df_input.copy()
