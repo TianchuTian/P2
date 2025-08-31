@@ -134,7 +134,6 @@ with explanation_col:
 
         if st.button("📊 Explain My Prediction", use_container_width=True):
             # --- UPGRADED AND COMPREHENSIVE NARRATIVE RULES ENGINE ---
-            # This list now contains more detailed rules for a wider range of conditions.
             narrative_rules = [
                 {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **vegetable consumption is low**, and a lack of dietary diversity can increase the risk of obesity and metabolic syndrome.'},
                 {'feature': 'FAF', 'condition': lambda v: v < 1.0, 'type': 'risk', 'text': 'Your **frequency of physical activity is low**. Increasing regular exercise helps boost metabolism and control weight.'},
@@ -158,85 +157,80 @@ with explanation_col:
 
             with st.spinner('Analyzing the reasons for your prediction...'):
                 try:
-                    # Prepare scaled data for SHAP, as the model was trained on it.
                     df_scaled = pd.DataFrame(st.session_state.df_input_original, columns=feature_names)
                     df_scaled[numeric_cols] = scaler.transform(df_scaled[numeric_cols])
                     
-                    # Calculate SHAP values.
                     explainer = shap.Explainer(model)
                     shap_values = explainer.shap_values(df_scaled)
                     
                     predicted_class_index = st.session_state.prediction_code
                     
-                    # Create a DataFrame to analyze SHAP values and original feature values.
                     shap_df = pd.DataFrame({
                         'feature': feature_names,
                         'shap_value': shap_values[0, :, predicted_class_index],
                         'feature_value': st.session_state.df_input_original.iloc[0].values
                     }).set_index('feature')
-                    shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
                     
-                    # Sort features by their absolute impact on this specific prediction.
-                    ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
-                    
-                    # --- NEW, COMPREHENSIVE NARRATIVE GENERATION ---
+                    # --- NEW "DUAL-ANALYSIS" NARRATIVE GENERATION ---
                     pred_label = st.session_state.prediction_label
-                    risk_narratives = []
-                    protective_narratives = []
-
-                    # 1. Generate the contextual opening statement.
-                    age_val = st.session_state.df_input_original['Age'].iloc[0]
-                    weight_val = st.session_state.df_input_original['Weight'].iloc[0]
-                    opening_statement = f"Based on the information you provided, the model predicted your risk category as **{pred_label}**.\n\n"
                     
-                    # Create a special, more contextual opening if Age and Weight are the top 2 factors
-                    if 'Weight' in ranked_features.index[:2] and 'Age' in ranked_features.index[:2]:
-                         opening_statement += f"For an individual of **{age_val:.0f} years old**, a weight of **{weight_val:.0f} kg** was the most significant factor leading to this prediction."
-                    else:
-                        # Generic but still strong opening if Age/Weight are not the top drivers
-                        primary_driver_name = ranked_features.index[0]
-                        primary_driver_text = primary_driver_name.replace("_", " ").title()
-                        opening_statement += f"Among your various inputs, **{primary_driver_text}** was the most impactful factor for this prediction."
-
-                    # 2. Iterate through ALL ranked features and apply the narrative rules. No more hard limits.
-                    for feature, row in ranked_features.iterrows():
-                        is_risk = row['shap_value'] > 0.05 # Use a small threshold to ignore negligible impacts
-                        is_protective = row['shap_value'] < -0.05
+                    # 1. Opening statement
+                    explanation = f"Based on the information you provided, the model predicted your risk category as **{pred_label}**.\n\n"
+                    
+                    # 2. Phase 1: Model-Driven Insights (Top 3 SHAP factors)
+                    shap_driven_narratives = []
+                    mentioned_features = set()
+                    
+                    # Analyze the top 4 most impactful features according to SHAP
+                    for feature, row in shap_df.abs().sort_values('shap_value', ascending=False).head(4).iterrows():
+                        is_risk = shap_df.loc[feature, 'shap_value'] > 0
+                        feature_value = shap_df.loc[feature, 'feature_value']
                         
-                        if not (is_risk or is_protective):
-                            continue # Skip features with almost zero impact
-                        
-                        # Find matching rules for this feature
                         for rule in narrative_rules:
                             if rule['feature'] == feature:
-                                # Check if the SHAP direction matches the rule type AND the value condition is met
-                                if (is_risk and rule['type'] == 'risk' and rule['condition'](row['feature_value'])):
-                                    risk_narratives.append(rule['text'])
-                                elif (is_protective and rule['type'] == 'protective' and rule['condition'](row['feature_value'])):
-                                    protective_narratives.append(rule['text'])
+                                if (is_risk and rule['type'] == 'risk' and rule['condition'](feature_value)):
+                                    shap_driven_narratives.append(rule['text'])
+                                    mentioned_features.add(feature)
+                                    break # Move to next feature once a rule is matched
+                                elif (not is_risk and rule['type'] == 'protective' and rule['condition'](feature_value)):
+                                    shap_driven_narratives.append(rule['text'])
+                                    mentioned_features.add(feature)
+                                    break
                     
-                    # 3. Assemble the final report from the collected narratives.
-                    final_explanation = opening_statement
-                    if risk_narratives:
-                        final_explanation += "\n\n**Main Risk Factors Analysis (in order of importance):**\n"
-                        for text in risk_narratives:
-                            final_explanation += f"- {text}\n"
-                    
-                    if protective_narratives:
-                        final_explanation += "\n**Positive Protective Factors to Maintain:**\n"
-                        for text in protective_narratives:
-                            final_explanation += f"- {text}\n"
+                    if shap_driven_narratives:
+                        explanation += "**Model's Key Insights (in order of impact):**\n"
+                        for text in shap_driven_narratives:
+                            explanation += f"- {text}\n"
 
-                    st.session_state.explanation_text = final_explanation
+                    # 3. Phase 2: Comprehensive Rule-Driven Review
+                    other_narratives = []
+                    for rule in narrative_rules:
+                        feature = rule['feature']
+                        # Check if this feature was already discussed
+                        if feature in mentioned_features:
+                            continue
+                        
+                        feature_value = st.session_state.df_input_original.iloc[0][feature]
+                        
+                        # Check if the user's input triggers this rule
+                        if rule['condition'](feature_value):
+                             other_narratives.append(rule['text'])
+
+                    if other_narratives:
+                        explanation += "\n**Other Noteworthy Health Habits:**\n"
+                        for text in other_narratives:
+                            explanation += f"- {text}\n"
+                                    
+                    st.session_state.explanation_text = explanation
 
                 except Exception as e:
                     st.error(f"Sorry, the explanation could not be generated: {e}")
         
-        # Display the text if it has been generated.
         if st.session_state.explanation_text:
             st.info(st.session_state.explanation_text)
     else:
         st.info("Please input your data and click 'Predict' to see the results.")
+
 
 # =============================================================================
 # 8. GLOBAL EXPLANATION (NEW SECTION)
