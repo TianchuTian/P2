@@ -2,6 +2,9 @@
 import streamlit as st
 import pandas as pd
 import joblib
+from sklearn.preprocessing import StandardScaler
+import shap
+import matplotlib.pyplot as plt
 
 # Load model and scaler
 model = joblib.load("xgb_obesity_model.pkl")
@@ -128,7 +131,28 @@ if st.button("🔍 Predict Obesity Risk"):
     # Map back to original tags
     prediction_label = label_mapping.get(prediction, "Unknown")
     
-    st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
+    #st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
+    # Display in card style
+    st.markdown(
+        f"""
+        <div style='background-color:#e8f5e9;padding:20px;border-radius:10px;'>
+            <h4 style='color:#2e7d32;'>✅ Your predicted obesity category is:</h4>
+            <h2 style='color:#1b5e20;'>{prediction_label}</h2>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    # Explain Prediction
+    if st.button("📊 Explain Prediction"):
+        explainer = shap.Explainer(model)
+        shap_values = explainer(df_input)
+
+        st.subheader("Top Contributing Features")
+        fig, ax = plt.subplots()
+        shap.plots.bar(shap_values[0], show=False)
+        st.pyplot(fig)
 
 # Footer
 st.markdown('<div class="footer">Made with ❤️ by Your AI Assistant</div>', unsafe_allow_html=True)
