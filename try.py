@@ -116,20 +116,15 @@ if st.session_state.prediction_code is not None:
         with st.spinner('Generating explanation, please wait...'):
             try:
                 explainer = shap.Explainer(model)
-                shap_values = explainer.shap_values(st.session_state.df_input_for_shap)
-                shap_values_for_instance = shap_values[0,:]
-                
-                base_value_for_plot = explainer.expected_value[0]
-                
-                # Plotting the SHAP force plot
+                explanation = explainer(st.session_state.df_input_for_shap)
+                explanation_for_instance = explanation[0, :]
+             
                 shap.force_plot(
-                    base_value_for_plot,
-                    shap_values_for_instance,
-                    st.session_state.df_input_for_shap.iloc[0,:],
+                    explanation_for_instance,
                     matplotlib=True,
                     show=False
                 )
-                
+    
                 st.session_state.shap_plot = plt.gcf()
                 # Use bbox_inches to prevent labels from being cut off.
                 plt.tight_layout(pad=1.0)
