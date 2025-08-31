@@ -128,7 +128,7 @@ if st.button("🔍 Predict Obesity Risk"):
     # Map back to original tags
     prediction_label = label_mapping.get(prediction, "Unknown")
     
-    st.success(f"✅ Your predicted obesity category is: **{prediction}**")
+    st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
 
 # Footer
 st.markdown('<div class="footer">Made with ❤️ by Your AI Assistant</div>', unsafe_allow_html=True)
