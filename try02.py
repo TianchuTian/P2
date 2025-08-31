@@ -150,7 +150,7 @@ if st.session_state.prediction_code is not None:
                 
                 # Create a DataFrame to analyze SHAP values and original feature values.
                 shap_df = pd.DataFrame(
-                    shap_values_for_instance
+                    shap_values_for_instance,
                     index=feature_names,
                     columns=['shap_value']
                 )
