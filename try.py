@@ -117,14 +117,23 @@ if st.session_state.prediction_code is not None:
             try:
                 explainer = shap.Explainer(model)
                 explanation = explainer(st.session_state.df_input_for_shap)
-                explanation_for_instance = explanation[0, :]
-             
+                predicted_class_index = st.session_state.prediction_code
+                
+                # --- 修复代码在这里 ---
+                # 1. 我们从 Explanation 对象中提取出预测类别的解释
+                explanation_for_predicted_class = explanation[:, :, predicted_class_index]
+                
+                # 2. 我们将 base_value 和 shap_values 作为独立的参数传入
+                #    .base_values[0] 获取第一个样本的基准值
+                #    .values[0] 获取第一个样本的SHAP值
                 shap.force_plot(
-                    explanation_for_instance,
+                    explanation_for_predicted_class.base_values[0],
+                    explanation_for_predicted_class.values[0],
+                    st.session_state.df_input_for_shap.iloc[0,:],
                     matplotlib=True,
                     show=False
                 )
-    
+
                 st.session_state.shap_plot = plt.gcf()
                 # Use bbox_inches to prevent labels from being cut off.
                 plt.tight_layout(pad=1.0)
