@@ -127,26 +127,33 @@ with main_col:
 # =============================================================================
 # 7. DISPLAY RESULTS AND LOCAL (TEXT) EXPLANATION
 # =============================================================================
-
 with explanation_col:
     st.markdown('<div class="section-title">💡 Prediction & Explanation</div>', unsafe_allow_html=True)
     if st.session_state.prediction_code is not None:
         st.success(f"✅ Your predicted obesity category is: **{st.session_state.prediction_label}**")
 
         if st.button("📊 Explain My Prediction", use_container_width=True):
-            # This is the "narrative engine" that generates human-readable text.
-            # Each rule defines a condition on the user's input and the text to show if that condition is met
-            # and supported by the SHAP analysis.
+            # --- UPGRADED AND COMPREHENSIVE NARRATIVE RULES ENGINE ---
+            # This list now contains more detailed rules for a wider range of conditions.
             narrative_rules = [
                 {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **vegetable consumption is low**, and a lack of dietary diversity can increase the risk of obesity and metabolic syndrome.'},
                 {'feature': 'FAF', 'condition': lambda v: v < 1.0, 'type': 'risk', 'text': 'Your **frequency of physical activity is low**. Increasing regular exercise helps boost metabolism and control weight.'},
                 {'feature': 'TUE', 'condition': lambda v: v > 1.5, 'type': 'risk', 'text': 'Your **daily screen time is long**, which is often associated with sedentary behavior and is a risk factor for weight gain.'},
                 {'feature': 'FAVC', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently consume high-caloric food**, which is a direct cause of excessive energy intake and weight gain.'},
                 {'feature': 'CH2O', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **daily water intake may be insufficient**. Adequate hydration helps promote metabolism.'},
+                {'feature': 'NCP', 'condition': lambda v: v > 3.5, 'type': 'risk', 'text': 'Your **number of main meals per day is high**, which may lead to a higher total daily calorie intake.'},
                 {'feature': 'family_history_with_overweight', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You have a **family history of overweight**, which means you may need to be more mindful of your lifestyle to maintain a healthy weight.'},
+                {'feature': 'CAEC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **always snack between meals**, which significantly increases additional calorie intake.'},
+                {'feature': 'CAEC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently snack between meals**, which adds extra calories to your diet.'},
+                {'feature': 'CALC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **always consume alcohol**, which is high in calories and significantly increases obesity risk.'},
+                {'feature': 'CALC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently consume alcohol**, which is high in calories and increases obesity risk.'},
+                {'feature': 'MTRANS_Automobile', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Your primary transport is by **automobile**, which is a sedentary behavior that reduces daily physical activity.'},
+                
                 # Protective factors
                 {'feature': 'FAF', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'You maintain a **high frequency of physical activity**, which is a crucial protective factor for maintaining a healthy weight.'},
                 {'feature': 'FCVC', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'You **frequently consume vegetables**, which is an excellent dietary habit that helps control calories and provide essential nutrients.'},
+                {'feature': 'TUE', 'condition': lambda v: v < 0.5, 'type': 'protective', 'text': 'Your **daily screen time is very short**, which often implies a more active lifestyle.'},
+                {'feature': 'MTRANS_Walking', 'condition': lambda v: v == 1, 'type': 'protective', 'text': 'Your primary transport is **walking**, which is an excellent habit that effectively increases daily energy expenditure.'},
             ]
 
             with st.spinner('Analyzing the reasons for your prediction...'):
@@ -172,30 +179,32 @@ with explanation_col:
                     # Sort features by their absolute impact on this specific prediction.
                     ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
                     
-                    # --- NARRATIVE GENERATION ---
+                    # --- NEW, COMPREHENSIVE NARRATIVE GENERATION ---
                     pred_label = st.session_state.prediction_label
                     risk_narratives = []
                     protective_narratives = []
 
-                    # 1. Generate the contextual opening statement
+                    # 1. Generate the contextual opening statement.
                     age_val = st.session_state.df_input_original['Age'].iloc[0]
                     weight_val = st.session_state.df_input_original['Weight'].iloc[0]
                     opening_statement = f"Based on the information you provided, the model predicted your risk category as **{pred_label}**.\n\n"
                     
                     # Create a special, more contextual opening if Age and Weight are the top 2 factors
                     if 'Weight' in ranked_features.index[:2] and 'Age' in ranked_features.index[:2]:
-                         opening_statement += f"For an individual of **{age_val:.0f} years old**, a weight of **{weight_val:.0f} kg** was the most significant factor leading to this prediction. In addition to these core metrics, other lifestyle habits also played an important role:\n"
+                         opening_statement += f"For an individual of **{age_val:.0f} years old**, a weight of **{weight_val:.0f} kg** was the most significant factor leading to this prediction."
                     else:
                         # Generic but still strong opening if Age/Weight are not the top drivers
                         primary_driver_name = ranked_features.index[0]
-                        # Use a simple translator for the primary driver name for the opening
                         primary_driver_text = primary_driver_name.replace("_", " ").title()
-                        opening_statement += f"Among your various inputs, **{primary_driver_text}** was the most impactful factor for this prediction. Other relevant factors include:\n"
+                        opening_statement += f"Among your various inputs, **{primary_driver_text}** was the most impactful factor for this prediction."
 
-                    # 2. Iterate through ranked features and apply the narrative rules
+                    # 2. Iterate through ALL ranked features and apply the narrative rules. No more hard limits.
                     for feature, row in ranked_features.iterrows():
-                        is_risk = row['shap_value'] > 0.05 # Check if it's a significant risk factor
-                        is_protective = row['shap_value'] < -0.05 # Check if it's a significant protective factor
+                        is_risk = row['shap_value'] > 0.05 # Use a small threshold to ignore negligible impacts
+                        is_protective = row['shap_value'] < -0.05
+                        
+                        if not (is_risk or is_protective):
+                            continue # Skip features with almost zero impact
                         
                         # Find matching rules for this feature
                         for rule in narrative_rules:
@@ -206,10 +215,10 @@ with explanation_col:
                                 elif (is_protective and rule['type'] == 'protective' and rule['condition'](row['feature_value'])):
                                     protective_narratives.append(rule['text'])
                     
-                    # 3. Assemble the final report from the collected narratives
+                    # 3. Assemble the final report from the collected narratives.
                     final_explanation = opening_statement
                     if risk_narratives:
-                        final_explanation += "\n**Main Risk Factors Analysis:**\n"
+                        final_explanation += "\n\n**Main Risk Factors Analysis (in order of importance):**\n"
                         for text in risk_narratives:
                             final_explanation += f"- {text}\n"
                     
@@ -228,6 +237,7 @@ with explanation_col:
             st.info(st.session_state.explanation_text)
     else:
         st.info("Please input your data and click 'Predict' to see the results.")
+
 # =============================================================================
 # 8. GLOBAL EXPLANATION (NEW SECTION)
 # =============================================================================
