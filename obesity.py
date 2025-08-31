@@ -17,7 +17,7 @@ try:
     model = joblib.load("xgb_obesity_model.pkl")
     scaler = joblib.load("scaler.pkl")
     # This file is critical for ensuring the input DataFrame has the correct column order.
-    feature_names = joblib.load("feature_names.pkl")
+    #feature_names = joblib.load("feature_names.pkl")
 except FileNotFoundError:
     st.error(
         "Error: Model or helper files not found. "
@@ -129,7 +129,7 @@ if st.button("🔍 Predict Obesity Risk"):
 
     # Create a DataFrame and ensure the column order matches the training data.
     df_input = pd.DataFrame([input_dict])
-    df_input = df_input[feature_names]
+    #df_input = df_input[feature_names]
 
     # Create a copy for scaling.
     df_input_scaled = df_input.copy()
