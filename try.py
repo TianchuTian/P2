@@ -123,7 +123,7 @@ if st.session_state.prediction_code is not None:
                 
                 # Plotting the SHAP force plot
                 shap.force_plot(
-                    explainer.expected_value[predicted_class_index],
+                    base_value_for_plot,
                     shap_values[predicted_class_index][0,:],
                     st.session_state.df_input_for_shap.iloc[0,:],
                     matplotlib=True,
