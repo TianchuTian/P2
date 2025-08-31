@@ -156,6 +156,8 @@ with explanation_col:
 
                     age_val = st.session_state.df_input_original['Age'].iloc[0]
                     weight_val = st.session_state.df_input_original['Weight'].iloc[0]
+                    gender_code = st.session_state.df_input_original['Gender'].iloc[0]
+                    gender_text = "female" if gender_code == 0 else "male"
                     opening_statement = f"Based on the information you provided, the model predicted your risk category as **{pred_label}**.\n\n"
                     if 'Weight' in ranked_features.index[:2] and 'Age' in ranked_features.index[:2]:
                          opening_statement += f"For an individual of **{age_val:.0f} years old**, a weight of **{weight_val:.0f} kg** was the most significant factor leading to this prediction."
