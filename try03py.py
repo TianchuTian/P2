@@ -167,13 +167,9 @@ with explanation_col:
 
             
             with st.spinner('Analyzing your health profile...'):
-                # --- NEW: Generate dashboard and text simultaneously ---
-                #st.session_state.health_dashboard = generate_health_dashboard(st.session_state.df_input_original, narrative_rules)
+                # Generate and save the HTML scorecard to the session state
                 st.session_state.explanation_html = generate_health_card_html(st.session_state.df_input_original, narrative_rules)
                 
-               
-            
-
 # --- NEW DISPLAY LOGIC ---
         # Display the HTML scorecard if it exists in the session state.
         if st.session_state.explanation_html:
