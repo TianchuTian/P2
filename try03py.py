@@ -165,10 +165,24 @@ with explanation_col:
             narrative_rules = [
                 {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **vegetable consumption is low**, and a lack of dietary diversity can increase the risk of obesity and metabolic syndrome.'},
                 {'feature': 'FAF', 'condition': lambda v: v < 1.0, 'type': 'risk', 'text': 'Your **frequency of physical activity is low**. Increasing regular exercise helps boost metabolism and control weight.'},
-                # ... (rest of your comprehensive narrative rules) ...
+                {'feature': 'TUE', 'condition': lambda v: v > 1.5, 'type': 'risk', 'text': 'Your **daily screen time is long**, which is often associated with sedentary behavior and is a risk factor for weight gain.'},
+                {'feature': 'FAVC', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently consume high-caloric food**, which is a direct cause of excessive energy intake and weight gain.'},
+                {'feature': 'CH2O', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **daily water intake may be insufficient**. Adequate hydration helps promote metabolism.'},
+                {'feature': 'NCP', 'condition': lambda v: v > 3.5, 'type': 'risk', 'text': 'Your **number of main meals per day is high**, which may lead to a higher total daily calorie intake.'},
+                {'feature': 'family_history_with_overweight', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You have a **family history of overweight**, which means you may need to be more mindful of your lifestyle to maintain a healthy weight.'},
+                {'feature': 'CAEC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **always snack between meals**, which significantly increases additional calorie intake.'},
+                {'feature': 'CAEC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently snack between meals**, which adds extra calories to your diet.'},
+                {'feature': 'CALC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **always consume alcohol**, which is high in calories and significantly increases obesity risk.'},
+                {'feature': 'CALC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently consume alcohol**, which is high in calories and increases obesity risk.'},
+                {'feature': 'MTRANS_Automobile', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Your primary transport is by **automobile**, which is a sedentary behavior that reduces daily physical activity.'},
+                
+                # Protective factors
+                {'feature': 'FAF', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'You maintain a **high frequency of physical activity**, which is a crucial protective factor for maintaining a healthy weight.'},
+                {'feature': 'FCVC', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'You **frequently consume vegetables**, which is an excellent dietary habit that helps control calories and provide essential nutrients.'},
+                {'feature': 'TUE', 'condition': lambda v: v < 0.5, 'type': 'protective', 'text': 'Your **daily screen time is very short**, which often implies a more active lifestyle.'},
                 {'feature': 'MTRANS_Walking', 'condition': lambda v: v == 1, 'type': 'protective', 'text': 'Your primary transport is **walking**, which is an excellent habit that effectively increases daily energy expenditure.'},
             ]
-
+            
             with st.spinner('Analyzing the reasons for your prediction...'):
                 try:
                     df_scaled = pd.DataFrame(st.session_state.df_input_original, columns=feature_names)
@@ -179,40 +193,72 @@ with explanation_col:
                     
                     predicted_class_index = st.session_state.prediction_code
                     
-                    shap_df = pd.DataFrame({
-                        'feature': feature_names,
-                        'shap_value': shap_values[0, :, predicted_class_index],
-                        'feature_value': st.session_state.df_input_original.iloc[0].values
-                    }).set_index('feature')
+                    shap_df = pd.DataFrame({'feature': feature_names, 'shap_value': shap_values[0, :, predicted_class_index], 'feature_value': st.session_state.df_input_original.iloc[0].values}).set_index('feature')
                     shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
-                    
                     ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
                     
-                    # --- NARRATIVE GENERATION (Unchanged and Correct) ---
-                    # ... (Your dual-analysis narrative logic here) ...
-                    # This part remains the same.
-                    explanation = "Your detailed explanation text is generated here..." # Placeholder
+                    # --- NARRATIVE GENERATION (This is the full, correct logic) ---
+                    pred_label = st.session_state.prediction_label
+                    risk_narratives = []
+                    protective_narratives = []
+
+                    age_val = st.session_state.df_input_original['Age'].iloc[0]
+                    weight_val = st.session_state.df_input_original['Weight'].iloc[0]
+                    opening_statement = f"Based on the information you provided, the model predicted your risk category as **{pred_label}**.\n\n"
+                    if 'Weight' in ranked_features.index[:2] and 'Age' in ranked_features.index[:2]:
+                         opening_statement += f"For an individual of **{age_val:.0f} years old**, a weight of **{weight_val:.0f} kg** was the most significant factor leading to this prediction."
+                    else:
+                        primary_driver_name = ranked_features.index[0]
+                        primary_driver_text = primary_driver_name.replace("_", " ").title()
+                        opening_statement += f"Among your various inputs, **{primary_driver_text}** was the most impactful factor for this prediction."
+
+                    shap_driven_narratives = []
+                    mentioned_features = set()
+                    for feature, row in ranked_features.head(4).iterrows():
+                        is_risk = row['shap_value'] > 0
+                        for rule in narrative_rules:
+                            if rule['feature'] == feature:
+                                if (is_risk and rule['type'] == 'risk' and rule['condition'](row['feature_value'])) or \
+                                   (not is_risk and rule['type'] == 'protective' and rule['condition'](row['feature_value'])):
+                                    shap_driven_narratives.append(rule['text'])
+                                    mentioned_features.add(feature)
+                                    break
                     
-                    # --- NEW: Generate and save the personalized plot ---
+                    other_narratives = []
+                    for rule in narrative_rules:
+                        feature = rule['feature']
+                        if feature not in mentioned_features and rule['condition'](st.session_state.df_input_original.iloc[0][feature]):
+                            other_narratives.append(rule['text'])
+                    
+                    final_explanation = opening_statement
+                    if shap_driven_narratives:
+                        final_explanation += "\n\n**Model's Key Insights (in order of impact):**\n"
+                        for text in shap_driven_narratives:
+                            final_explanation += f"- {text}\n"
+                    if other_narratives:
+                        final_explanation += "\n**Other Noteworthy Health Habits:**\n"
+                        for text in other_narratives:
+                            final_explanation += f"- {text}\n"
+                    
+                    st.session_state.explanation_text = final_explanation
+                    # --- END OF NARRATIVE GENERATION ---
+
+                    # Generate and save the personalized plot
                     st.session_state.local_shap_plot = generate_local_shap_plot(shap_df, st.session_state.prediction_label)
-                    st.session_state.explanation_text = explanation # Your existing text generation logic
 
                 except Exception as e:
                     st.error(f"Sorry, the explanation could not be generated: {e}")
         
-        # --- NEW: Side-by-side display for plot and text ---
-        if st.session_state.local_shap_plot and st.session_state.explanation_text:
-            plot_col, text_col = st.columns([2, 3]) # Give more space to text
-            with plot_col:
-                st.pyplot(st.session_state.local_shap_plot)
-            with text_col:
-                st.info(st.session_state.explanation_text)
-        elif st.session_state.explanation_text: # Fallback if plot fails
+        # --- NEW DISPLAY LOGIC ---
+        # Display the plot first, then the text.
+        if st.session_state.local_shap_plot:
+            st.pyplot(st.session_state.local_shap_plot)
+        
+        if st.session_state.explanation_text:
             st.info(st.session_state.explanation_text)
             
     else:
         st.info("Please input your data and click 'Predict' to see the results.")
-
 
 # =============================================================================
 # 9. FOOTER
