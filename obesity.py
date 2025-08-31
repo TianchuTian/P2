@@ -173,20 +173,18 @@ if st.session_state.prediction_result:
                 
                 # Create a force plot, which is excellent for explaining single predictions.
                 # We need to capture the plot as a Matplotlib figure object.
-                fig, ax = plt.subplots()
+                predicted_class_index = st.session_state.prediction_code
+                #fig, ax = plt.subplots()
                 # Assuming the first class's explanation is representative or choose a specific one.
                 shap.force_plot(
-                    explainer.expected_value[0], 
-                    shap_values.values[0,:,0], 
-                    st.session_state.df_input_for_shap, 
+                    explainer.expected_value[predicted_class_index], 
+                    shap_values[predicted_class_index][0,:],
+                    st.session_state.df_input_for_shap.iloc[0,:],
                     matplotlib=True, 
                     show=False,
-                    ax=ax
                 )
+                st.session_state.shap_plot = plt.gcf()
                 plt.tight_layout() # Adjust layout to prevent labels from overlapping.
-
-                # KEY FIX: Save the generated plot to the session state.
-                st.session_state.shap_plot = fig
 
             except Exception as e:
                 st.error(f"Sorry, the explanation could not be generated: {e}")
