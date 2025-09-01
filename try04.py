@@ -9,26 +9,18 @@ import joblib
 # Set page configuration FIRST. This must be the first Streamlit command.
 st.set_page_config(page_title="Obesity Risk Predictor - Home", page_icon="🏠", layout="centered")
 
-# --- NEW: Navigation Logic ---
-# This block checks for a navigation flag at the very top of the script.
-if st.session_state.get("navigate_to_report", False):
-    # Reset the flag to False to prevent constant redirection
-    st.session_state.navigate_to_report = False
-    # Programmatically switch to the report page
-    st.switch_page("pages/1_📊_Report.py")
-# --- END OF NEW LOGIC ---
-
-# Initialize session state for user input if it doesn't exist.
-if 'user_input' not in st.session_state:
-    st.session_state.user_input = None
-
-# --- Load feature names for structuring the input ---
-try:
-    model = joblib.load("xgb_obesity_model.pkl")
-    feature_names = model.feature_names_in_
-except Exception as e:
-    st.error(f"Error loading necessary files: {e}")
-    st.stop()
+# --- Function to render the main input page ---
+def main_page():
+    """
+    This function contains all the UI elements and logic for the input page.
+    """
+    # --- Load feature names for structuring the input ---
+    try:
+        model = joblib.load("xgb_obesity_model.pkl")
+        feature_names = model.feature_names_in_
+    except Exception as e:
+        st.error(f"Error loading necessary files: {e}")
+        st.stop()
     
 # --- UI: Styling and Titles ---
 st.markdown("""<style>
@@ -92,3 +84,15 @@ with st.form("user_input_form"):
         st.session_state.navigate_to_report = True
 
 st.markdown('<div class="footer">Made with ❤️ by Your AI Assistant</div>', unsafe_allow_html=True)
+
+# =============================================================================
+# SCRIPT EXECUTION LOGIC
+# =============================================================================
+# This is the main router of the app.
+if st.session_state.get("navigate_to_report", False):
+    # If the navigation flag is set, switch to the report page.
+    st.session_state.navigate_to_report = False
+    st.switch_page("pages/1_📊_Report.py")
+else:
+    # Otherwise, render the main input page.
+    main_page()
