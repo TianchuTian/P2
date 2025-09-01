@@ -105,8 +105,37 @@ def render_input_page():
     """
     Renders all the UI and logic for the data input page.
     """
-    st.markdown('<div class="title-font">Obesity Risk Predictor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="cute-subtitle">A personalized obesity risk assessment with AI-powered explanations.</div>', unsafe_allow_html=True)
+    #st.markdown('<div class="title-font">Obesity Risk Predictor</div>', unsafe_allow_html=True)
+    #st.markdown('<div class="cute-subtitle">A personalized obesity risk assessment with AI-powered explanations.</div>', unsafe_allow_html=True)
+
+
+    st.markdown("""
+    <div style="
+        background-color: #eaf6ff;
+        padding: 30px;
+        border-radius: 15px;
+        text-align: center;
+        margin-bottom: 40px;
+        border: 2px solid #bde0fe;
+    ">
+        <h1 style="
+            font-family: 'Arial Rounded MT Bold', sans-serif;
+            color: #034f84;
+            font-size: 48px;
+            margin-bottom: 10px;
+        ">
+            Obesity Risk Predictor
+        </h1>
+        <p style="
+            font-family: 'Georgia', serif;
+            color: #5a7b9a;
+            font-size: 22px;
+            font-style: italic;
+        ">
+            Your personalized health journey starts here, with AI-powered insights.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
     with st.form("user_input_form"):
         st.markdown('<div class="section-title">📝 Input Your Health Data</div>', unsafe_allow_html=True)
