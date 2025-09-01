@@ -110,29 +110,21 @@ def render_input_page():
 
 
     st.markdown("""
-    <div style="
-        background-color: #eaf6ff;
-        padding: 30px;
-        border-radius: 15px;
-        text-align: center;
-        margin-bottom: 40px;
-        border: 2px solid #bde0fe;
-    ">
+    <div style="text-align: center; margin-bottom: 40px;">
         <h1 style="
             font-family: 'Arial Rounded MT Bold', sans-serif;
-            color: #034f84;
+            color: #2c3e50; 
             font-size: 48px;
             margin-bottom: 10px;
         ">
             Obesity Risk Predictor
         </h1>
         <p style="
-            font-family: 'Georgia', serif;
-            color: #5a7b9a;
+            font-family: "Comic Sans MS", cursive, sans-serif;
+            color: #e17055; 
             font-size: 22px;
-            font-style: italic;
         ">
-            Your personalized health journey starts here, with AI-powered insights.
+            A personalized obesity risk assessment with AI-powered explanations.
         </p>
     </div>
     """, unsafe_allow_html=True)
