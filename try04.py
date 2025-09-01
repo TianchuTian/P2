@@ -283,9 +283,8 @@ def render_report_page():
             narrative_text = "\n".join(narrative_text.split("\n")[1:]) 
         # --- END OF UNIFIED ANALYSIS ---
 
-
     # --- Display the Final Report in the "Top-Down" layout ---
-   replacements = {
+    replacements = {
         "## Summary": "## 🧠 Summary",
         "## Key Insights": "## 📌 Key Insights",
         "## Other Factors": "## 📌 Other Factors",
