@@ -285,3 +285,5 @@ elif st.session_state.view == 'report':
 else:
     st.session_state.view = 'input' # Default to input page if state is invalid
     st.rerun()
+
+st.markdown('<div class="footer">Made with ❤️ by Your AI Assistant</div>', unsafe_allow_html=True)
