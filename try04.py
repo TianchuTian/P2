@@ -84,39 +84,20 @@ def generate_risk_factors_plot(_shap_df, prediction_label):
     return fig
 
 
-# --- UPGRADED: Function to call Gemini API and get a STRUCTURED JSON output ---
+# --- UPGRADED: Function to call Gemini API with the dual-analysis prompt ---
 @st.cache_data
 def generate_structured_report_with_gemini(raw_explanation_data):
-    """
-    Takes the raw, rule-based explanation and sends it to the Gemini API
-    to get a structured JSON report.
-    """
     llm = genai.GenerativeModel('gemini-1.5-flash')
+    # This new prompt instructs the AI to return a more detailed JSON object.
     prompt = f"""
     As a professional and empathetic health consultant, analyze the following mechanical data and generate a personalized health report in a structured JSON format.
 
     **Instructions for the JSON structure:**
-    - The root object must have three keys: "summary", "insights", and "recommendations".
+    - The root object must have four keys: "summary", "model_insights", "other_habits", and "recommendations".
     - "summary": A string containing a warm, encouraging summary of the prediction.
-    - "insights": A list of JSON objects. Each object represents a key health habit and must have two keys: "title" (e.g., "Snacking Between Meals") and "explanation" (a detailed, empathetic paragraph about this habit). Cover all the noteworthy habits provided.
-    - "recommendations": A list of JSON objects. Each object represents an actionable step and must have two keys: "title" (e.g., "Mindful Snacking") and "suggestion" (a detailed, encouraging paragraph with practical tips). Provide 2-3 recommendations.
-
-    **Example of the desired JSON format:**
-    {{
-      "summary": "Based on the information you provided...",
-      "insights": [
-        {{
-          "title": "Snacking Between Meals",
-          "explanation": "We noticed you frequently snack..."
-        }}
-      ],
-      "recommendations": [
-        {{
-          "title": "Incorporate More Movement",
-          "suggestion": "Aim for at least 30 minutes of moderate-intensity exercise..."
-        }}
-      ]
-    }}
+    - "model_insights": A list of JSON objects. Each object represents a key habit IDENTIFIED BY THE MODEL (from the "Model's Key Insights" section of the data) and must have "title" and "explanation".
+    - "other_habits": A list of JSON objects. Each object represents a habit from the "Other Noteworthy Health Habits" section of the data and must have "title" and "explanation".
+    - "recommendations": A list of JSON objects. Each object represents an actionable step and must have "title" and "suggestion". Provide 2-3 recommendations based on all risk factors.
 
     **Mechanical Analysis to Transform:**
     ---
@@ -277,25 +258,9 @@ def render_report_page():
     st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
     
     if report_data:
-        tab1, tab2, tab3 = st.tabs(["**Summary & Insights**", "**Recommendations**", "**Model's View**"])
+        tab_model, tab_summary, tab_recs = st.tabs(["**Model's View**", "**Summary & Insights**", "**Recommendations**"])
 
-        with tab1:
-            st.markdown(f"### Summary")
-            st.write(report_data.get("summary", "No summary available."))
-            st.markdown("### Key Health Habits Analysis")
-            for insight in report_data.get("insights", []):
-                with st.container(border=True):
-                    st.subheader(insight.get("title"))
-                    st.write(insight.get("explanation"))
-
-        with tab2:
-            st.markdown("### Actionable Steps Forward")
-            for rec in report_data.get("recommendations", []):
-                 with st.container(border=True):
-                    st.subheader(rec.get("title"))
-                    st.write(rec.get("suggestion"))
-        
-        with tab3:
+        with tab_model:
             st.markdown("### How the Model Made Its Decision")
             st.write("This chart shows the factors that had the most positive impact on this specific prediction, according to the model's internal logic.")
             risk_plot = generate_risk_factors_plot(shap_df, prediction_label)
@@ -304,6 +269,34 @@ def render_report_page():
             else:
                 st.write("The model did not identify significant risk factors for this prediction.")
 
+        with tab_summary:
+            st.markdown("### Summary")
+            st.write(report_data.get("summary", "No summary available."))
+            
+            # --- FIX IS HERE: Display both insight sections ---
+            model_insights = report_data.get("model_insights", [])
+            if model_insights:
+                st.markdown("### Model's Key Insights")
+                for insight in model_insights:
+                    with st.container(border=True):
+                        st.subheader(insight.get("title"))
+                        st.write(insight.get("explanation"))
+
+            other_habits = report_data.get("other_habits", [])
+            if other_habits:
+                st.markdown("### Other Noteworthy Health Habits")
+                for habit in other_habits:
+                    with st.container(border=True):
+                        st.subheader(habit.get("title"))
+                        st.write(habit.get("explanation"))
+
+        with tab_recs:
+            st.markdown("### Actionable Steps Forward")
+            for rec in report_data.get("recommendations", []):
+                 with st.container(border=True):
+                    st.subheader(rec.get("title"))
+                    st.write(rec.get("suggestion"))
+    
     if st.button("⬅️ Start a New Analysis"):
         st.session_state.view = 'input'
         st.rerun()
