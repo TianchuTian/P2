@@ -283,18 +283,6 @@ def render_report_page():
             narrative_text = "\n".join(narrative_text.split("\n")[1:]) 
         # --- END OF UNIFIED ANALYSIS ---
 
-    # --- Display the Final Report in the "Top-Down" layout ---
-    replacements = {
-        "## Summary": "## 🧠 Summary",
-        "## Key Insights": "## 📌 Key Insights",
-        "## Other Factors": "## 📌 Other Factors",
-        "## Other Important Factors": "## 📌 Other Factors",
-        "## Recommendations": "## 📌 Recommendations",
-        "## Recommendations for a Healthier You": "## 📌 Recommendations",
-    }
-    for old, new in replacements.items():
-        narrative_text = narrative_text.replace(old, new)
-
     # --- Display ---
     st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
 
