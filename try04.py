@@ -227,4 +227,61 @@ with explanation_col:
                     st.session_state.risk_factors_plot = generate_risk_factors_plot(shap_df, st.session_state.prediction_label)
                     
                     # --- GENERATE THE "RAW INTELLIGENCE" FOR GEMINI ---
-                    # 1.
+                    # 1. Add 'abs_shap_value' column and rank features
+                    shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
+                    ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
+                    
+                    # 2. Prepare the raw text
+                    pred_label = st.session_state.prediction_label
+                    age_val = st.session_state.df_input_original['Age'].iloc[0]
+                    weight_val = st.session_state.df_input_original['Weight'].iloc[0]
+                    gender_code = st.session_state.df_input_original['Gender'].iloc[0]
+                    gender_text = "female" if gender_code == 0 else "male"
+                    
+                    raw_text_for_ai = f"PREDICTION RESULT: {pred_label}\n"
+                    raw_text_for_ai += f"USER PROFILE: {age_val:.0f} years old {gender_text}, {weight_val:.0f} kg\n\n"
+
+                    # 3. Collect narratives based on the dual-analysis logic
+                    shap_driven_narratives = []
+                    mentioned_features = set()
+                    for feature, row in ranked_features.head(4).iterrows():
+                        is_risk = row['shap_value'] > 0
+                        for rule in narrative_rules:
+                            if rule['feature'] == feature:
+                                if (is_risk and rule['type'] == 'risk' and rule['condition'](row['feature_value'])) or \
+                                   (not is_risk and rule['type'] == 'protective' and rule['condition'](row['feature_value'])):
+                                    shap_driven_narratives.append(rule['text'])
+                                    mentioned_features.add(feature)
+                                    break
+                    
+                    other_narratives = []
+                    for rule in narrative_rules:
+                        feature = rule['feature']
+                        if feature not in mentioned_features and rule['condition'](st.session_state.df_input_original.iloc[0][feature]):
+                            other_narratives.append(rule['text'])
+                    
+                    if shap_driven_narratives:
+                        raw_text_for_ai += "Model's Key Insights (in order of impact):\n- " + "\n- ".join(shap_driven_narratives)
+                    if other_narratives:
+                        raw_text_for_ai += "\n\nOther Noteworthy Health Habits:\n- " + "\n- ".join(other_narratives)
+                    
+                    # --- CALL THE GEMINI API ---
+                    st.session_state.explanation_text = generate_narrative_with_gemini(raw_text_for_ai)
+
+                except Exception as e:
+                    st.error(f"Sorry, the explanation could not be generated: {e}")
+        
+        # --- Display logic ---
+        if st.session_state.risk_factors_plot:
+            st.pyplot(st.session_state.risk_factors_plot)
+        
+        if st.session_state.explanation_text:
+            st.info(st.session_state.explanation_text)
+            
+    else:
+        st.info("Please input your data and click 'Predict' to see the results.")
+
+# =============================================================================
+# 7. FOOTER
+# =============================================================================
+st.markdown('<div class="footer">Made with ❤️ by Your AI Assistant</div>', unsafe_allow_html=True)
