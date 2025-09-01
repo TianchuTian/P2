@@ -172,7 +172,7 @@ def render_report_page():
     .footer { margin-top: 60px; text-align: center; font-size: 14px; color: #636e72; }
     </style>""", unsafe_allow_html=True)
 
-    st.markdown('<div class="section-title">Your Personalized Health Report</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">💡 Your Personalized Health Report</div>', unsafe_allow_html=True)
     
     # Retrieve user input from session state
     user_input = st.session_state.user_input
