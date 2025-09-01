@@ -166,6 +166,9 @@ with explanation_col:
 
                     st.session_state.risk_factors_plot = generate_risk_factors_plot(shap_df, st.session_state.prediction_label)
                     
+                    shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
+                    ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
+                    
                     # 2. Generate the narrative text
                     pred_label = st.session_state.prediction_label
                     risk_narratives = []
