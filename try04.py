@@ -161,6 +161,34 @@ def render_report_page():
     Renders the full report page with plot and text explanations.
     """
 
+    st.markdown("""
+    <style>
+        .report-box {
+            background-color: #fdfefe;
+            padding: 25px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+            font-size: 16px;
+            line-height: 1.7;
+            color: #2d3436;
+            max-width: 100%;
+        }
+        .report-box h1, .report-box h2, .report-box h3, .report-box h4, .report-box h5, .report-box h6 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-top: 1.4em;
+            margin-bottom: 0.6em;
+        }
+        .report-box ul {
+            margin-left: 1.4rem;
+        }
+        .report-box strong {
+            color: #2d3436;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.markdown("""<style>
     .section-title { font-size: 24px; font-weight: bold; color: #0984e3; margin-top: 40px; margin-bottom: 20px; }
     .footer { margin-top: 60px; text-align: center; font-size: 14px; color: #636e72; }
@@ -273,7 +301,9 @@ def render_report_page():
         st.write("No significant risk factors were identified by the model for this prediction.")
 
     st.markdown("#### AI-Powered Health Analysis")
-    st.info(narrative_text)
+    #st.info(narrative_text)
+    st.markdown(f'<div class="report-box">{narrative_text}</div>', unsafe_allow_html=True)
+
     
     # Add a button to go back to the input page
     if st.button("⬅️ Start a New Analysis"):
