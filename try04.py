@@ -56,7 +56,7 @@ binary_risk_on_one = ['family_history_with_overweight', 'FAVC']
 # --- Helper function to generate the personalized "Risk Factors" bar plot ---
 @st.cache_data
 def generate_risk_factors_plot(_shap_df, prediction_label):
-    risk_features = _shap_df[_shap_df['shap_value'] > 0.05].copy()
+    risk_features = _shap_df[_shap_df['shap_value'] > 0.01].copy()
     intuitive_risk_features = []
     for feature, row in risk_features.iterrows():
         feature_value = row['feature_value']
