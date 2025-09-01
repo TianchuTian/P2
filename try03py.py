@@ -41,8 +41,8 @@ if 'prediction_label' not in st.session_state:
     st.session_state.prediction_label = None
 if 'explanation_text' not in st.session_state:
     st.session_state.explanation_text = None
-if 'shap_waterfall_plot' not in st.session_state: # New state for the waterfall plot
-    st.session_state.shap_waterfall_plot = None
+if 'risk_factors_plot' not in st.session_state: # New state for the risk factors plot
+    st.session_state.risk_factors_plot = None
 if 'df_input_original' not in st.session_state:
     st.session_state.df_input_original = None
     
@@ -86,11 +86,37 @@ with main_col:
         st.session_state.prediction_label = label_mapping.get(prediction_code, "Unknown")
         st.session_state.df_input_original = df_input
         st.session_state.explanation_text = None
-        st.session_state.shap_waterfall_plot = None # Reset plot for new prediction
+        st.session_state.risk_factors_plot = None # Reset plot for new prediction
 
 # =============================================================================
 # 7. DISPLAY RESULTS AND LOCAL (TEXT) EXPLANATION
 # =============================================================================
+def generate_risk_factors_plot(shap_df, prediction_label):
+    """
+    Generates a bar plot showing ONLY the positive-contribution (risk) features.
+    """
+    # Filter for features with a significant POSITIVE impact (risk factors)
+    risk_features = shap_df[shap_df['shap_value'] > 0.05].copy()
+    
+    if risk_features.empty:
+        return None
+
+    # Sort by SHAP value to have the most impactful at the top
+    risk_features = risk_features.sort_values('shap_value', ascending=True)
+    
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(8, len(risk_features) * 0.5 + 1))
+    ax.barh(risk_features.index, risk_features['shap_value'], color='#ff4d4d') # Use a consistent red color for risk
+    ax.set_xlabel("Positive Impact on Prediction (SHAP value)")
+    ax.set_title(f"Main Risk Factors for '{prediction_label}' Prediction")
+    plt.tight_layout()
+    
+    return fig
+
+
+
+
+
 with explanation_col:
     st.markdown('<div class="section-title">💡 Prediction & Explanation</div>', unsafe_allow_html=True)
     
@@ -127,27 +153,18 @@ with explanation_col:
                     df_scaled[numeric_cols] = scaler.transform(df_scaled[numeric_cols])
                     
                     explainer = shap.Explainer(model)
-                    explanation = explainer(df_scaled) # Use the modern Explanation object
+                    shap_values = explainer.shap_values(df_scaled)
+                    predicted_class_index = model.predict(df_scaled)[0]
                     
-                    predicted_class_index = st.session_state.df_input_original.index[0] # Should be 0 for a single prediction
-                    
-                    # --- NEW: Generate the Waterfall plot ---
-                    fig, ax = plt.subplots()
-                    # We select the explanation for the specific predicted class
-                    shap.plots.waterfall(explanation[predicted_class_index, :, model.predict(df_scaled)[0]], show=False)
-                    plt.title(f"How Your Inputs Led to the '{st.session_state.prediction_label}' Prediction")
-                    plt.tight_layout()
-                    st.session_state.shap_waterfall_plot = fig
-                    # --- END OF PLOT GENERATION ---
-                    
+ 
                     # --- NARRATIVE GENERATION (This logic can be reused) ---
                     shap_df = pd.DataFrame({
                         'feature': feature_names,
-                        'shap_value': explanation.values[0, :, predicted_class_index],
+                        'shap_value': shap_values[0, :, predicted_class_index],
                         'feature_value': st.session_state.df_input_original.iloc[0].values
                     }).set_index('feature')
-                    shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
-                    ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
+
+                    st.session_state.risk_factors_plot = generate_risk_factors_plot(shap_df, st.session_state.prediction_label)
                     
                     # 2. Generate the narrative text
                     pred_label = st.session_state.prediction_label
@@ -201,8 +218,8 @@ with explanation_col:
                     st.error(f"Sorry, the explanation could not be generated: {e}")
         
         # --- Display logic ---
-        if st.session_state.shap_waterfall_plot:
-            st.pyplot(st.session_state.shap_waterfall_plot)
+        if st.session_state.risk_factors_plot:
+            st.pyplot(st.session_state.risk_factors_plot)
         
         if st.session_state.explanation_text:
             st.info(st.session_state.explanation_text)
