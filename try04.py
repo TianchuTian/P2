@@ -161,7 +161,7 @@ def render_report_page():
     Renders the full report page with plot and text explanations.
     """
 
-   st.markdown("""
+    st.markdown("""
         <style>
         .info-box {
             background-color: #eaf4ff;
