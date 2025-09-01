@@ -55,37 +55,15 @@ binary_risk_on_one = ['family_history_with_overweight', 'FAVC']
 
 # --- Helper function to generate the personalized "Risk Factors" bar plot ---
 @st.cache_data
-def generate_risk_factors_plot(_shap_df, prediction_label):
-    risk_features = _shap_df[_shap_df['shap_value'] > 0.01].copy()
-    intuitive_risk_features = []
-    for feature, row in risk_features.iterrows():
-        feature_value = row['feature_value']
-        
-        # --- NEW LOGIC FOR BINARY FEATURES ---
-        if feature in binary_risk_on_one:
-            # For these features, only show them as risks if the user input was 1 (e.g., "yes")
-            if feature_value == 1:
-                intuitive_risk_features.append(feature)
-            continue # Move to the next feature
-        # --- END OF NEW LOGIC ---
-
-        is_one_hot = any(prefix in feature for prefix in one_hot_prefixes)
-        if is_one_hot:
-            if feature_value == 1:
-                intuitive_risk_features.append(feature)
-        else:
-            intuitive_risk_features.append(feature)
-            
-    if not intuitive_risk_features:
+def generate_risk_factors_plot(_risk_features_df, prediction_label):
+    if _risk_features_df.empty:
         return None
-        
-    risk_features_to_plot = risk_features.loc[intuitive_risk_features]
-    if risk_features_to_plot.empty:
-        return None
-        
-    risk_features_to_plot = risk_features_to_plot.sort_values('shap_value', ascending=True)
-    fig, ax = plt.subplots(figsize=(10, len(risk_features_to_plot) * 0.4 + 1.5))
-    ax.barh(risk_features_to_plot.index, risk_features_to_plot['shap_value'], color='#ff4d4d')
+    
+    # Sort by SHAP value to have the most impactful at the top for plotting
+    plot_df = _risk_features_df.sort_values('shap_value', ascending=True)
+    
+    fig, ax = plt.subplots(figsize=(10, len(plot_df) * 0.4 + 1.5))
+    ax.barh(plot_df.index, plot_df['shap_value'], color='#ff4d4d')
     ax.set_xlabel("Positive Impact on Prediction (SHAP value)")
     ax.set_title(f"Main Risk Factors for '{prediction_label}' Prediction")
     plt.tight_layout()
@@ -204,16 +182,32 @@ def render_report_page():
         shap_values = explainer.shap_values(df_input_scaled)
         shap_df = pd.DataFrame({'feature': feature_names, 'shap_value': shap_values[0, :, prediction_code], 'feature_value': df_input.iloc[0].values}).set_index('feature')
 
-        # Generate the personalized plot
-        risk_plot = generate_risk_factors_plot(shap_df, prediction_label)
 
-        # --- Generate the "Raw Intelligence" for Gemini ---
-        shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
-        ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
-        age_val, weight_val, gender_code = df_input['Age'].iloc[0], df_input['Weight'].iloc[0], df_input['Gender'].iloc[0]
-        gender_text = "female" if gender_code == 0 else "male"
-        raw_text_for_ai = f"PREDICTION RESULT: {prediction_label}\nUSER PROFILE: {age_val:.0f} years old {gender_text}, {weight_val:.0f} kg\n\n"
+
+        # --- NEW UNIFIED ANALYSIS LOGIC ---
+        # 1. First, identify ALL intuitive risk factors based on SHAP
+        all_risk_features = shap_df[shap_df['shap_value'] > 0.05].copy()
+        intuitive_risk_features_list = []
+        for feature, row in all_risk_features.iterrows():
+            feature_value = row['feature_value']
+            if feature in binary_risk_on_one:
+                if feature_value == 1:
+                    intuitive_risk_features_list.append(feature)
+                continue
+            is_one_hot = any(prefix in feature for prefix in one_hot_prefixes)
+            if is_one_hot:
+                if feature_value == 1:
+                    intuitive_risk_features_list.append(feature)
+            else:
+                intuitive_risk_features_list.append(feature)
         
+        # This DataFrame is now the single source of truth for what the model considers a key risk
+        intuitive_risk_features_df = all_risk_features.loc[intuitive_risk_features_list].sort_values('shap_value', ascending=False)
+        
+        # 2. Generate the plot based on this unified list
+        risk_plot = generate_risk_factors_plot(intuitive_risk_features_df, prediction_label)
+
+        # 3. Generate the "Raw Intelligence" for Gemini based on this unified list
         narrative_rules = [
                 {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **vegetable consumption is low**, and a lack of dietary diversity can increase the risk of obesity and metabolic syndrome.'},
                 {'feature': 'FAF', 'condition': lambda v: v < 1.0, 'type': 'risk', 'text': 'Your **frequency of physical activity is low**. Increasing regular exercise helps boost metabolism and control weight.'},
@@ -235,28 +229,36 @@ def render_report_page():
                 {'feature': 'MTRANS_Walking', 'condition': lambda v: v == 1, 'type': 'protective', 'text': 'Your primary transport is **walking**, which is an excellent habit that effectively increases daily energy expenditure.'},
         ]
         
-        shap_driven_narratives, mentioned_features = [], set()
-        for feature, row in ranked_features.head(4).iterrows():
-            is_risk = row['shap_value'] > 0
+        age_val, weight_val = df_input['Age'].iloc[0], df_input['Weight'].iloc[0]
+        gender_code, gender_text = (df_input['Gender'].iloc[0], "female" if df_input['Gender'].iloc[0] == 0 else "male")
+        
+        raw_text_for_ai = f"PREDICTION RESULT: {prediction_label}\nUSER PROFILE: {age_val:.0f} years old {gender_text}, {weight_val:.0f} kg\n\n"
+        
+        # The "Model's Key Insights" are now DIRECTLY from the features shown in the plot
+        key_insights_narratives = []
+        for feature, row in intuitive_risk_features_df.iterrows():
             for rule in narrative_rules:
-                if rule['feature'] == feature:
-                    if (is_risk and rule['type'] == 'risk' and rule['condition'](row['feature_value'])) or (not is_risk and rule['type'] == 'protective' and rule['condition'](row['feature_value'])):
-                        shap_driven_narratives.append(rule['text'])
-                        mentioned_features.add(feature)
-                        break
+                if rule['feature'] == feature and rule['condition'](row['feature_value']):
+                    key_insights_narratives.append(rule['text'])
+                    break # Found the rule for this feature, move to the next
+        
+        if key_insights_narratives:
+             raw_text_for_ai += "Model's Key Insights (matching the chart):\n- " + "\n- ".join(key_insights_narratives)
+
+        # "Other Habits" are now any risks NOT highlighted by the model as key insights
         other_narratives = []
+        key_insight_features = set(intuitive_risk_features_df.index)
         for rule in narrative_rules:
             feature = rule['feature']
-            if feature not in mentioned_features and rule['condition'](df_input.iloc[0][feature]):
+            if feature not in key_insight_features and rule['type'] == 'risk' and rule['condition'](df_input.iloc[0][feature]):
                 other_narratives.append(rule['text'])
-                
-        if shap_driven_narratives:
-            raw_text_for_ai += "Model's Key Insights (in order of impact):\n- " + "\n- ".join(shap_driven_narratives)
+        
         if other_narratives:
             raw_text_for_ai += "\n\nOther Noteworthy Health Habits:\n- " + "\n- ".join(other_narratives)
         
-        # Get the AI-powered narrative
         narrative_text = generate_narrative_with_gemini(raw_text_for_ai)
+        # --- END OF UNIFIED ANALYSIS ---
+
 
     # --- Display the Final Report in the "Top-Down" layout ---
     st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
