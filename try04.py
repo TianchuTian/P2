@@ -111,6 +111,81 @@ def generate_structured_report_with_gemini(raw_explanation_data):
     except Exception as e:
         st.error(f"Error generating or parsing the AI report: {e}")
         return None
+
+
+# --- Master data analysis function, fully cached ---
+@st.cache_data
+def get_analysis_data(user_input_dict):
+    """
+    This function performs all heavy computations: prediction, SHAP, and AI call.
+    It returns only data, with no Streamlit UI elements inside.
+    """
+    df_input = pd.DataFrame([user_input_dict])[feature_names]
+    df_input_scaled = df_input.copy()
+    df_input_scaled[numeric_cols] = scaler.transform(df_input_scaled[numeric_cols])
+    prediction_code = model.predict(df_input_scaled)[0]
+    prediction_label = label_mapping.get(prediction_code, "Unknown")
+
+    explainer = shap.Explainer(model)
+    shap_values = explainer.shap_values(df_input_scaled)
+    shap_df = pd.DataFrame({'feature': feature_names, 'shap_value': shap_values[0, :, prediction_code], 'feature_value': df_input.iloc[0].values}).set_index('feature')
+    
+    # --- Generate "Raw Intelligence" for Gemini ---
+    shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
+    ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
+    
+    age_val, weight_val, gender_code = df_input['Age'].iloc[0], df_input['Weight'].iloc[0], df_input['Gender'].iloc[0]
+    gender_text = "female" if gender_code == 0 else "male"
+    
+    raw_text_for_ai = f"PREDICTION RESULT: {prediction_label}\nUSER PROFILE: {age_val:.0f} years old {gender_text}, {weight_val:.0f} kg\n\n"
+    
+    narrative_rules = [
+                {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **vegetable consumption is low**, and a lack of dietary diversity can increase the risk of obesity and metabolic syndrome.'},
+                {'feature': 'FAF', 'condition': lambda v: v < 1.0, 'type': 'risk', 'text': 'Your **frequency of physical activity is low**. Increasing regular exercise helps boost metabolism and control weight.'},
+                {'feature': 'TUE', 'condition': lambda v: v > 1.5, 'type': 'risk', 'text': 'Your **daily screen time is long**, which is often associated with sedentary behavior and is a risk factor for weight gain.'},
+                {'feature': 'FAVC', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently consume high-caloric food**, which is a direct cause of excessive energy intake and weight gain.'},
+                {'feature': 'CH2O', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **daily water intake may be insufficient**. Adequate hydration helps promote metabolism.'},
+                {'feature': 'NCP', 'condition': lambda v: v > 3.5, 'type': 'risk', 'text': 'Your **number of main meals per day is high**, which may lead to a higher total daily calorie intake.'},
+                {'feature': 'family_history_with_overweight', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You have a **family history of overweight**, which means you may need to be more mindful of your lifestyle to maintain a healthy weight.'},
+                {'feature': 'CAEC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **always snack between meals**, which significantly increases additional calorie intake.'},
+                {'feature': 'CAEC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently snack between meals**, which adds extra calories to your diet.'},
+                {'feature': 'CALC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **always consume alcohol**, which is high in calories and significantly increases obesity risk.'},
+                {'feature': 'CALC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently consume alcohol**, which is high in calories and increases obesity risk.'},
+                {'feature': 'MTRANS_Automobile', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Your primary transport is by **automobile**, which is a sedentary behavior that reduces daily physical activity.'},
+                
+                # Protective factors
+                {'feature': 'FAF', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'You maintain a **high frequency of physical activity**, which is a crucial protective factor for maintaining a healthy weight.'},
+                {'feature': 'FCVC', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'You **frequently consume vegetables**, which is an excellent dietary habit that helps control calories and provide essential nutrients.'},
+                {'feature': 'TUE', 'condition': lambda v: v < 0.5, 'type': 'protective', 'text': 'Your **daily screen time is very short**, which often implies a more active lifestyle.'},
+                {'feature': 'MTRANS_Walking', 'condition': lambda v: v == 1, 'type': 'protective', 'text': 'Your primary transport is **walking**, which is an excellent habit that effectively increases daily energy expenditure.'},
+        ]
+    
+    shap_driven_narratives, mentioned_features = [], set()
+    # Check top 5 most impactful features for the "Key Insights" section
+    for feature, row in ranked_features.head(5).iterrows():
+        is_risk = row['shap_value'] > 0
+        for rule in narrative_rules:
+            if rule['feature'] == feature:
+                if (is_risk and rule['type'] == 'risk' and rule['condition'](row['feature_value'])):
+                    shap_driven_narratives.append(rule['text'])
+                    mentioned_features.add(feature)
+                    break
+    
+    other_narratives = []
+    for rule in narrative_rules:
+        feature = rule['feature']
+        if feature not in mentioned_features and rule['type'] == 'risk' and rule['condition'](df_input.iloc[0][feature]):
+            other_narratives.append(rule['text'])
+            
+    if shap_driven_narratives:
+        raw_text_for_ai += "Model's Key Insights (in order of impact):\n- " + "\n- ".join(list(dict.fromkeys(shap_driven_narratives))) # Remove duplicates
+    if other_narratives:
+        raw_text_for_ai += "\n\nOther Noteworthy Health Habits:\n- " + "\n- ".join(list(dict.fromkeys(other_narratives))) # Remove duplicates
+    
+    report_data = generate_structured_report_with_gemini(raw_text_for_ai)
+    
+    return prediction_label, report_data, shap_df
+
         
 # =============================================================================
 # 4. PAGE DEFINITIONS (as functions)
@@ -179,82 +254,22 @@ def render_input_page():
 
 def render_report_page():
     """
-    Renders the full report page with plot and text explanations.
+    Renders the full report page by first calling the analysis function
+    and then using Streamlit elements to display the results.
     """
+    if 'user_input' not in st.session_state or not st.session_state.user_input:
+        st.warning("Please go to the Home page to input your data first.")
+        if st.button("⬅️ Go to Home Page"):
+            st.session_state.view = 'input'
+            st.rerun()
+        st.stop()
+        
     st.markdown('<div class="title-font">Your Personalized Health Report</div>', unsafe_allow_html=True)
     
-    user_input = st.session_state.user_input
-    
-    # --- Perform analysis and generate content ONCE and cache it ---
-    @st.cache_data
-    def get_full_report(user_input_dict):
-        df_input = pd.DataFrame([user_input_dict])[feature_names]
-        df_input_scaled = df_input.copy()
-        df_input_scaled[numeric_cols] = scaler.transform(df_input_scaled[numeric_cols])
-        prediction_code = model.predict(df_input_scaled)[0]
-        prediction_label = label_mapping.get(prediction_code, "Unknown")
+    # 1. Get the analysis data (this will be fast due to caching)
+    prediction_label, report_data, shap_df = get_analysis_data(tuple(st.session_state.user_input.items()))
 
-        explainer = shap.Explainer(model)
-        shap_values = explainer.shap_values(df_input_scaled)
-        
-        shap_df = pd.DataFrame({'feature': feature_names, 'shap_value': shap_values[0, :, prediction_code], 'feature_value': df_input.iloc[0].values}).set_index('feature')
-        
-        # --- Generate "Raw Intelligence" for Gemini ---
-        shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
-        ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
-        age_val, weight_val, gender_code = df_input['Age'].iloc[0], df_input['Weight'].iloc[0], df_input['Gender'].iloc[0]
-        gender_text = "female" if gender_code == 0 else "male"
-        
-        raw_text_for_ai = f"PREDICTION RESULT: {prediction_label}\nUSER PROFILE: {age_val:.0f} years old {gender_text}, {weight_val:.0f} kg\n\n"
-        
-        narrative_rules = [
-                {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **vegetable consumption is low**, and a lack of dietary diversity can increase the risk of obesity and metabolic syndrome.'},
-                {'feature': 'FAF', 'condition': lambda v: v < 1.0, 'type': 'risk', 'text': 'Your **frequency of physical activity is low**. Increasing regular exercise helps boost metabolism and control weight.'},
-                {'feature': 'TUE', 'condition': lambda v: v > 1.5, 'type': 'risk', 'text': 'Your **daily screen time is long**, which is often associated with sedentary behavior and is a risk factor for weight gain.'},
-                {'feature': 'FAVC', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently consume high-caloric food**, which is a direct cause of excessive energy intake and weight gain.'},
-                {'feature': 'CH2O', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **daily water intake may be insufficient**. Adequate hydration helps promote metabolism.'},
-                {'feature': 'NCP', 'condition': lambda v: v > 3.5, 'type': 'risk', 'text': 'Your **number of main meals per day is high**, which may lead to a higher total daily calorie intake.'},
-                {'feature': 'family_history_with_overweight', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You have a **family history of overweight**, which means you may need to be more mindful of your lifestyle to maintain a healthy weight.'},
-                {'feature': 'CAEC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **always snack between meals**, which significantly increases additional calorie intake.'},
-                {'feature': 'CAEC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently snack between meals**, which adds extra calories to your diet.'},
-                {'feature': 'CALC_Always', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **always consume alcohol**, which is high in calories and significantly increases obesity risk.'},
-                {'feature': 'CALC_Frequently', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'You **frequently consume alcohol**, which is high in calories and increases obesity risk.'},
-                {'feature': 'MTRANS_Automobile', 'condition': lambda v: v == 1, 'type': 'risk', 'text': 'Your primary transport is by **automobile**, which is a sedentary behavior that reduces daily physical activity.'},
-                
-                # Protective factors
-                {'feature': 'FAF', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'You maintain a **high frequency of physical activity**, which is a crucial protective factor for maintaining a healthy weight.'},
-                {'feature': 'FCVC', 'condition': lambda v: v > 2.5, 'type': 'protective', 'text': 'You **frequently consume vegetables**, which is an excellent dietary habit that helps control calories and provide essential nutrients.'},
-                {'feature': 'TUE', 'condition': lambda v: v < 0.5, 'type': 'protective', 'text': 'Your **daily screen time is very short**, which often implies a more active lifestyle.'},
-                {'feature': 'MTRANS_Walking', 'condition': lambda v: v == 1, 'type': 'protective', 'text': 'Your primary transport is **walking**, which is an excellent habit that effectively increases daily energy expenditure.'},
-        ]
-        
-        shap_driven_narratives, mentioned_features = [], set()
-        for feature, row in ranked_features.head(4).iterrows():
-            is_risk = row['shap_value'] > 0
-            for rule in narrative_rules:
-                if rule['feature'] == feature:
-                    if (is_risk and rule['type'] == 'risk' and rule['condition'](row['feature_value'])) or (not is_risk and rule['type'] == 'protective' and rule['condition'](row['feature_value'])):
-                        shap_driven_narratives.append(rule['text'])
-                        mentioned_features.add(feature)
-                        break
-        other_narratives = []
-        for rule in narrative_rules:
-            feature = rule['feature']
-            if feature not in mentioned_features and rule['condition'](df_input.iloc[0][feature]):
-                other_narratives.append(rule['text'])
-                
-        if shap_driven_narratives:
-            raw_text_for_ai += "Model's Key Insights (in order of impact):\n- " + "\n- ".join(shap_driven_narratives)
-        if other_narratives:
-            raw_text_for_ai += "\n\nOther Noteworthy Health Habits:\n- " + "\n- ".join(other_narratives)
-        
-        report_data = generate_structured_report_with_gemini(raw_text_for_ai)
-        
-        return prediction_label, report_data, shap_df
-
-    prediction_label, report_data, shap_df = get_full_report(user_input)
-
-    # --- Display the Final Report using Tabs ---
+    # 2. Display the report using the retrieved data
     st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
     
     if report_data:
@@ -270,13 +285,12 @@ def render_report_page():
                 st.write("The model did not identify significant risk factors for this prediction.")
 
         with tab_summary:
-            st.markdown("### Summary")
+            st.markdown(f"### Summary")
             st.write(report_data.get("summary", "No summary available."))
             
-            # --- FIX IS HERE: Display both insight sections ---
             model_insights = report_data.get("model_insights", [])
             if model_insights:
-                st.markdown("### Model's Key Insights")
+                st.markdown("### Model's Key Insights: Understanding Your Habits")
                 for insight in model_insights:
                     with st.container(border=True):
                         st.subheader(insight.get("title"))
@@ -284,14 +298,14 @@ def render_report_page():
 
             other_habits = report_data.get("other_habits", [])
             if other_habits:
-                st.markdown("### Other Noteworthy Health Habits")
+                st.markdown("### Other Noteworthy Health Habits: Areas for Growth")
                 for habit in other_habits:
                     with st.container(border=True):
                         st.subheader(habit.get("title"))
                         st.write(habit.get("explanation"))
 
         with tab_recs:
-            st.markdown("### Actionable Steps Forward")
+            st.markdown("### Recommendations: Taking Positive Steps Forward")
             for rec in report_data.get("recommendations", []):
                  with st.container(border=True):
                     st.subheader(rec.get("title"))
