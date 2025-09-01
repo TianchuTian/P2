@@ -14,6 +14,7 @@ import joblib
 import shap
 import matplotlib.pyplot as plt
 import google.generativeai as genai
+import json
 
 # =============================================================================
 # 2. LOAD ARTIFACTS AND CONFIGURE API (Cached for performance)
@@ -55,32 +56,68 @@ binary_risk_on_one = ['family_history_with_overweight', 'FAVC']
 
 # --- Helper function to generate the personalized "Risk Factors" bar plot ---
 @st.cache_data
-def generate_risk_factors_plot(_risk_features_df, prediction_label):
-    if _risk_features_df.empty:
+def generate_risk_factors_plot(_shap_df, prediction_label):
+    risk_features = _shap_df[_shap_df['shap_value'] > 0].copy()
+    intuitive_risk_features = []
+    for feature, row in risk_features.iterrows():
+        is_one_hot = any(prefix in feature for prefix in one_hot_prefixes)
+        if feature in binary_risk_on_one:
+            if row['feature_value'] == 1:
+                intuitive_risk_features.append(feature)
+            continue
+        if is_one_hot:
+            if row['feature_value'] == 1:
+                intuitive_risk_features.append(feature)
+        else:
+            intuitive_risk_features.append(feature)
+    if not intuitive_risk_features:
         return None
-    
-    # Sort by SHAP value to have the most impactful at the top for plotting
-    plot_df = _risk_features_df.sort_values('shap_value', ascending=True)
-    
-    fig, ax = plt.subplots(figsize=(10, len(plot_df) * 0.4 + 1.5))
-    ax.barh(plot_df.index, plot_df['shap_value'], color='#ff4d4d')
+    risk_features_to_plot = risk_features.loc[intuitive_risk_features]
+    if risk_features_to_plot.empty:
+        return None
+    risk_features_to_plot = risk_features_to_plot.sort_values('shap_value', ascending=True)
+    fig, ax = plt.subplots(figsize=(10, len(risk_features_to_plot) * 0.4 + 1.5))
+    ax.barh(risk_features_to_plot.index, risk_features_to_plot['shap_value'], color='#ff4d4d')
     ax.set_xlabel("Positive Impact on Prediction (SHAP value)")
     ax.set_title(f"Main Risk Factors for '{prediction_label}' Prediction")
     plt.tight_layout()
     return fig
 
-# --- Helper function to call Gemini API for a narrative explanation ---
+
+# --- UPGRADED: Function to call Gemini API and get a STRUCTURED JSON output ---
 @st.cache_data
-def generate_narrative_with_gemini(raw_explanation_data):
+def generate_structured_report_with_gemini(raw_explanation_data):
+    """
+    Takes the raw, rule-based explanation and sends it to the Gemini API
+    to get a structured JSON report.
+    """
     llm = genai.GenerativeModel('gemini-1.5-flash')
     prompt = f"""
-    As a professional and empathetic health consultant, rewrite the following mechanical analysis into a warm, encouraging, and easy-to-understand health report.
-    **Instructions:**
-    1. Start with a clear summary of the prediction.
-    2. Analyze the **"Model's Key Insights"**. Explain them contextually.
-    3. Discuss the **"Other Noteworthy Health Habits"**.
-    4. Conclude with a **"Recommendations"** section with 2-3 actionable suggestions.
-    5. Maintain a positive, non-judgmental tone. Use Markdown for formatting.
+    As a professional and empathetic health consultant, analyze the following mechanical data and generate a personalized health report in a structured JSON format.
+
+    **Instructions for the JSON structure:**
+    - The root object must have three keys: "summary", "insights", and "recommendations".
+    - "summary": A string containing a warm, encouraging summary of the prediction.
+    - "insights": A list of JSON objects. Each object represents a key health habit and must have two keys: "title" (e.g., "Snacking Between Meals") and "explanation" (a detailed, empathetic paragraph about this habit). Cover all the noteworthy habits provided.
+    - "recommendations": A list of JSON objects. Each object represents an actionable step and must have two keys: "title" (e.g., "Mindful Snacking") and "suggestion" (a detailed, encouraging paragraph with practical tips). Provide 2-3 recommendations.
+
+    **Example of the desired JSON format:**
+    {{
+      "summary": "Based on the information you provided...",
+      "insights": [
+        {{
+          "title": "Snacking Between Meals",
+          "explanation": "We noticed you frequently snack..."
+        }}
+      ],
+      "recommendations": [
+        {{
+          "title": "Incorporate More Movement",
+          "suggestion": "Aim for at least 30 minutes of moderate-intensity exercise..."
+        }}
+      ]
+    }}
+
     **Mechanical Analysis to Transform:**
     ---
     {raw_explanation_data}
@@ -88,10 +125,12 @@ def generate_narrative_with_gemini(raw_explanation_data):
     """
     try:
         response = llm.generate_content(prompt)
-        return response.text
+        clean_response = response.text.strip().replace("```json", "").replace("```", "")
+        return json.loads(clean_response)
     except Exception as e:
-        return f"Sorry, the AI-powered explanation could not be generated. Error: {e}"
-
+        st.error(f"Error generating or parsing the AI report: {e}")
+        return None
+        
 # =============================================================================
 # 4. PAGE DEFINITIONS (as functions)
 # =============================================================================
@@ -156,23 +195,19 @@ def render_input_page():
             st.session_state.view = 'report'
             st.rerun() # Rerun the script to show the report page
 
+
 def render_report_page():
     """
     Renders the full report page with plot and text explanations.
     """
-
-    st.markdown("""<style>
-    .section-title { font-size: 24px; font-weight: bold; color: #0984e3; margin-top: 40px; margin-bottom: 20px; }
-    .footer { margin-top: 60px; text-align: center; font-size: 14px; color: #636e72; }
-    </style>""", unsafe_allow_html=True)
-
-    st.markdown('<div class="section-title">💡 Your Personalized Health Report</div>', unsafe_allow_html=True)
+    st.markdown('<div class="title-font">Your Personalized Health Report</div>', unsafe_allow_html=True)
     
-    # Retrieve user input from session state
     user_input = st.session_state.user_input
     
-    with st.spinner("Analyzing your profile and generating your report..."):
-        df_input = pd.DataFrame([user_input])[feature_names]
+    # --- Perform analysis and generate content ONCE and cache it ---
+    @st.cache_data
+    def get_full_report(user_input_dict):
+        df_input = pd.DataFrame([user_input_dict])[feature_names]
         df_input_scaled = df_input.copy()
         df_input_scaled[numeric_cols] = scaler.transform(df_input_scaled[numeric_cols])
         prediction_code = model.predict(df_input_scaled)[0]
@@ -180,34 +215,17 @@ def render_report_page():
 
         explainer = shap.Explainer(model)
         shap_values = explainer.shap_values(df_input_scaled)
+        
         shap_df = pd.DataFrame({'feature': feature_names, 'shap_value': shap_values[0, :, prediction_code], 'feature_value': df_input.iloc[0].values}).set_index('feature')
-
-
-
-        # --- NEW UNIFIED ANALYSIS LOGIC ---
-        # 1. First, identify ALL intuitive risk factors based on SHAP
-        all_risk_features = shap_df[shap_df['shap_value'] > 0].copy()
-        intuitive_risk_features_list = []
-        for feature, row in all_risk_features.iterrows():
-            feature_value = row['feature_value']
-            if feature in binary_risk_on_one:
-                if feature_value == 1:
-                    intuitive_risk_features_list.append(feature)
-                continue
-            is_one_hot = any(prefix in feature for prefix in one_hot_prefixes)
-            if is_one_hot:
-                if feature_value == 1:
-                    intuitive_risk_features_list.append(feature)
-            else:
-                intuitive_risk_features_list.append(feature)
         
-        # This DataFrame is now the single source of truth for what the model considers a key risk
-        intuitive_risk_features_df = all_risk_features.loc[intuitive_risk_features_list].sort_values('shap_value', ascending=False)
+        # --- Generate "Raw Intelligence" for Gemini ---
+        shap_df['abs_shap_value'] = shap_df['shap_value'].abs()
+        ranked_features = shap_df.sort_values('abs_shap_value', ascending=False)
+        age_val, weight_val, gender_code = df_input['Age'].iloc[0], df_input['Weight'].iloc[0], df_input['Gender'].iloc[0]
+        gender_text = "female" if gender_code == 0 else "male"
         
-        # 2. Generate the plot based on this unified list
-        risk_plot = generate_risk_factors_plot(intuitive_risk_features_df, prediction_label)
-
-        # 3. Generate the "Raw Intelligence" for Gemini based on this unified list
+        raw_text_for_ai = f"PREDICTION RESULT: {prediction_label}\nUSER PROFILE: {age_val:.0f} years old {gender_text}, {weight_val:.0f} kg\n\n"
+        
         narrative_rules = [
                 {'feature': 'FCVC', 'condition': lambda v: v < 1.5, 'type': 'risk', 'text': 'Your **vegetable consumption is low**, and a lack of dietary diversity can increase the risk of obesity and metabolic syndrome.'},
                 {'feature': 'FAF', 'condition': lambda v: v < 1.0, 'type': 'risk', 'text': 'Your **frequency of physical activity is low**. Increasing regular exercise helps boost metabolism and control weight.'},
@@ -229,50 +247,63 @@ def render_report_page():
                 {'feature': 'MTRANS_Walking', 'condition': lambda v: v == 1, 'type': 'protective', 'text': 'Your primary transport is **walking**, which is an excellent habit that effectively increases daily energy expenditure.'},
         ]
         
-        age_val, weight_val = df_input['Age'].iloc[0], df_input['Weight'].iloc[0]
-        gender_code, gender_text = (df_input['Gender'].iloc[0], "female" if df_input['Gender'].iloc[0] == 0 else "male")
-        
-        raw_text_for_ai = f"PREDICTION RESULT: {prediction_label}\nUSER PROFILE: {age_val:.0f} years old {gender_text}, {weight_val:.0f} kg\n\n"
-        
-        # The "Model's Key Insights" are now DIRECTLY from the features shown in the plot
-        key_insights_narratives = []
-        for feature, row in intuitive_risk_features_df.iterrows():
+        shap_driven_narratives, mentioned_features = [], set()
+        for feature, row in ranked_features.head(4).iterrows():
+            is_risk = row['shap_value'] > 0
             for rule in narrative_rules:
-                if rule['feature'] == feature and rule['condition'](row['feature_value']):
-                    key_insights_narratives.append(rule['text'])
-                    break # Found the rule for this feature, move to the next
-        
-        if key_insights_narratives:
-             raw_text_for_ai += "Model's Key Insights (matching the chart):\n- " + "\n- ".join(key_insights_narratives)
-
-        # "Other Habits" are now any risks NOT highlighted by the model as key insights
+                if rule['feature'] == feature:
+                    if (is_risk and rule['type'] == 'risk' and rule['condition'](row['feature_value'])) or (not is_risk and rule['type'] == 'protective' and rule['condition'](row['feature_value'])):
+                        shap_driven_narratives.append(rule['text'])
+                        mentioned_features.add(feature)
+                        break
         other_narratives = []
-        key_insight_features = set(intuitive_risk_features_df.index)
         for rule in narrative_rules:
             feature = rule['feature']
-            if feature not in key_insight_features and rule['type'] == 'risk' and rule['condition'](df_input.iloc[0][feature]):
+            if feature not in mentioned_features and rule['condition'](df_input.iloc[0][feature]):
                 other_narratives.append(rule['text'])
-        
+                
+        if shap_driven_narratives:
+            raw_text_for_ai += "Model's Key Insights (in order of impact):\n- " + "\n- ".join(shap_driven_narratives)
         if other_narratives:
             raw_text_for_ai += "\n\nOther Noteworthy Health Habits:\n- " + "\n- ".join(other_narratives)
         
-        narrative_text = generate_narrative_with_gemini(raw_text_for_ai)
-        # --- END OF UNIFIED ANALYSIS ---
+        report_data = generate_structured_report_with_gemini(raw_text_for_ai)
+        
+        return prediction_label, report_data, shap_df
 
+    prediction_label, report_data, shap_df = get_full_report(user_input)
 
-    # --- Display the Final Report in the "Top-Down" layout ---
+    # --- Display the Final Report using Tabs ---
     st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
     
-    st.markdown("#### Main Influential Factors (Personalized Chart)")
-    if risk_plot:
-        st.pyplot(risk_plot)
-    else:
-        st.write("No significant risk factors were identified by the model for this prediction.")
+    if report_data:
+        tab1, tab2, tab3 = st.tabs(["**Summary & Insights**", "**Recommendations**", "**Model's View**"])
 
-    st.markdown("#### AI-Powered Health Analysis")
-    st.info(narrative_text)
-    
-    # Add a button to go back to the input page
+        with tab1:
+            st.markdown(f"### Summary")
+            st.write(report_data.get("summary", "No summary available."))
+            st.markdown("### Key Health Habits Analysis")
+            for insight in report_data.get("insights", []):
+                with st.container(border=True):
+                    st.subheader(insight.get("title"))
+                    st.write(insight.get("explanation"))
+
+        with tab2:
+            st.markdown("### Actionable Steps Forward")
+            for rec in report_data.get("recommendations", []):
+                 with st.container(border=True):
+                    st.subheader(rec.get("title"))
+                    st.write(rec.get("suggestion"))
+        
+        with tab3:
+            st.markdown("### How the Model Made Its Decision")
+            st.write("This chart shows the factors that had the most positive impact on this specific prediction, according to the model's internal logic.")
+            risk_plot = generate_risk_factors_plot(shap_df, prediction_label)
+            if risk_plot:
+                st.pyplot(risk_plot)
+            else:
+                st.write("The model did not identify significant risk factors for this prediction.")
+
     if st.button("⬅️ Start a New Analysis"):
         st.session_state.view = 'input'
         st.rerun()
@@ -280,8 +311,13 @@ def render_report_page():
 # =============================================================================
 # SCRIPT EXECUTION ROUTER
 # =============================================================================
-# This is the main router of the app. It checks the 'view' state and calls
-# the appropriate function to render the page.
+st.markdown("""<style>
+.stApp { background-color: #ffffff; }
+.stButton>button { border-color: #0984e3; color: #0984e3; }
+.stButton>button:hover { border-color: #0056b3; color: #0056b3; }
+</style>""", unsafe_allow_html=True,
+)
+
 if 'view' not in st.session_state:
     st.session_state.view = 'input'
 
@@ -290,7 +326,7 @@ if st.session_state.view == 'input':
 elif st.session_state.view == 'report':
     render_report_page()
 else:
-    st.session_state.view = 'input' # Default to input page if state is invalid
+    st.session_state.view = 'input'
     st.rerun()
-
+    
 st.markdown('<div class="footer">Made with ❤️ by Your AI Assistant</div>', unsafe_allow_html=True)
