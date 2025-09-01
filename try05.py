@@ -1,5 +1,5 @@
 # =============================================================================
-# FILE 1: app.py
+# FILE 1: try05.py
 # This is the main page for user data input.
 # =============================================================================
 import streamlit as st
@@ -41,19 +41,19 @@ with st.form("user_input_form"):
     with col1:
         Age = st.number_input("Age (years)", 14, 100, 25, 1)
         Weight = st.number_input("Weight (kg)", 30.0, 180.0, 70.0, 0.5)
-        FCVC = st.slider("Frequency of vegetable consumption (1=low, 3=high)", 1.0, 3.0, 1.0, 0.1)
-        NCP = st.slider("Number of main meals per day (1-4)", 1.0, 4.0, 4.0, 0.1)
-        CH2O = st.slider("Daily water intake (1=low, 3=high)", 1.0, 3.0, 1.0, 0.1)
-        FAF = st.slider("Physical activity frequency per week (0=none, 3=frequent)", 0.0, 3.0, 0.0, 0.1)
-        TUE = st.slider("Daily screen time (0=low, 2=high)", 0.0, 2.0, 2.0, 0.1)
+        FCVC = st.slider("[FCVC] Frequency of vegetable consumption (1=low, 3=high)", 1.0, 3.0, 1.0, 0.1)
+        NCP = st.slider("[NCP] Number of main meals per day (1-4)", 1.0, 4.0, 4.0, 0.1)
+        CH2O = st.slider("[CH2O] Daily water intake (1=low, 3=high)", 1.0, 3.0, 1.0, 0.1)
+        FAF = st.slider("[FAF] Physical activity frequency per week (0=none, 3=frequent)", 0.0, 3.0, 0.0, 0.1)
+        TUE = st.slider("[TUE] Daily screen time (0=low, 2=high)", 0.0, 2.0, 2.0, 0.1)
     
     with col2:
-        Gender = st.selectbox("Gender", ["Female", "Male"])
+        Gender = st.selectbox("Gender", ["Male", "Female"])
         family_history_with_overweight = st.selectbox("Family history of overweight", ["yes", "no"])
-        FAVC = st.selectbox("Do you consume high caloric food frequently?", ["yes", "no"], index=0)
-        CAEC = st.selectbox("Snacking frequency", ["no", "Sometimes", "Frequently", "Always"], index=3)
-        CALC = st.selectbox("Alcohol consumption", ["no", "Sometimes", "Frequently", "Always"], index=3)
-        MTRANS = st.selectbox("Primary transportation method", ["Public_Transportation", "Automobile", "Walking", "Motorbike", "Bike"], index=1)
+        FAVC = st.selectbox("[FAVC] Do you consume high caloric food frequently?", ["yes", "no"], index=0)
+        CAEC = st.selectbox("[CAEC] Snacking frequency", ["no", "Sometimes", "Frequently", "Always"], index=3)
+        CALC = st.selectbox("[CALC] Alcohol consumption", ["no", "Sometimes", "Frequently", "Always"], index=3)
+        MTRANS = st.selectbox("[MTRANS] Primary transportation method", ["Public_Transportation", "Automobile", "Walking", "Motorbike", "Bike"], index=1)
 
     # Form submission button
     submitted = st.form_submit_button("🔍 Predict & View My Report")
