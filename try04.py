@@ -161,26 +161,6 @@ def render_report_page():
     Renders the full report page with plot and text explanations.
     """
 
-    st.markdown("""
-        <style>
-        .info-box {
-            background-color: #eaf4ff;
-            border-left: 6px solid #74b9ff;
-            padding: 25px 30px;
-            border-radius: 10px;
-            font-size: 16px;
-            line-height: 1.7;
-            color: #2d3436;
-            margin-top: 20px;
-        }
-        .info-box h1, .info-box h2, .info-box h3 {
-            color: #2c3e50;
-            margin-top: 1.4em;
-            margin-bottom: 0.5em;
-            font-weight: bold;
-        }
-        </style>
-    """, unsafe_allow_html=True)
 
     st.markdown("""<style>
     .section-title { font-size: 24px; font-weight: bold; color: #0984e3; margin-top: 40px; margin-bottom: 20px; }
