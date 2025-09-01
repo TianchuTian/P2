@@ -105,29 +105,20 @@ def render_input_page():
     """
     Renders all the UI and logic for the data input page.
     """
+    
     #st.markdown('<div class="title-font">Obesity Risk Predictor</div>', unsafe_allow_html=True)
     #st.markdown('<div class="cute-subtitle">A personalized obesity risk assessment with AI-powered explanations.</div>', unsafe_allow_html=True)
 
+    st.markdown("""<style>
+    .title-font { font-size: 48px; font-weight: bold; color: #2c3e50; text-align: center; font-family: 'Arial Rounded MT Bold', sans-serif; }
+    .cute-subtitle { font-size: 22px; font-family: "Comic Sans MS", cursive, sans-serif; color: #e17055; text-align: center; margin-bottom: 30px; }
+    .section-title { font-size: 24px; font-weight: bold; color: #0984e3; margin-top: 40px; margin-bottom: 20px; }
+    .footer { margin-top: 60px; text-align: center; font-size: 14px; color: #636e72; }
+    </style>""", unsafe_allow_html=True)
+    st.markdown('<div class="title-font">Obesity Risk Predictor</div>', unsafe_allow_html=True)
+    st.markdown('<div class="cute-subtitle">A personalized obesity risk assessment with AI-powered explanations.</div>', unsafe_allow_html=True)
 
-    st.markdown("""
-    <div style="text-align: center; margin-bottom: 40px;">
-        <h1 style="
-            font-family: 'Arial Rounded MT Bold', sans-serif;
-            color: #2c3e50; 
-            font-size: 48px;
-            margin-bottom: 10px;
-        ">
-            Obesity Risk Predictor
-        </h1>
-        <p style="
-            font-family: "Comic Sans MS", cursive, sans-serif;
-            color: #e17055; 
-            font-size: 22px;
-        ">
-            A personalized obesity risk assessment with AI-powered explanations.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+
 
     with st.form("user_input_form"):
         st.markdown('<div class="section-title">📝 Input Your Health Data</div>', unsafe_allow_html=True)
