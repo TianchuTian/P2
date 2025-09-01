@@ -32,6 +32,9 @@ label_mapping = {
     6: "Obesity_Type_III"
 }
 
+# Define prefixes for one-hot encoded features to handle them smartly
+one_hot_prefixes = ['CAEC_', 'CALC_', 'MTRANS_']
+
 # =============================================================================
 # 4. PAGE CONFIGURATION AND SESSION STATE INITIALIZATION
 # =============================================================================
@@ -98,23 +101,37 @@ def generate_risk_factors_plot(shap_df, prediction_label):
     # Filter for features with a significant POSITIVE impact (risk factors)
     risk_features = shap_df[shap_df['shap_value'] > 0.05].copy()
     
-    if risk_features.empty:
+    # --- NEW LOGIC TO MAKE THE PLOT INTUITIVE ---
+    # For one-hot encoded features, we only want to show the one the user actually selected (where value is 1)
+    intuitive_risk_features = []
+    for feature, row in risk_features.iterrows():
+        is_one_hot = any(prefix in feature for prefix in one_hot_prefixes)
+        if is_one_hot:
+            # If it's a one-hot feature, only add it if its value is 1
+            if row['feature_value'] == 1:
+                intuitive_risk_features.append(feature)
+        else:
+            # If it's not a one-hot feature, add it normally
+            intuitive_risk_features.append(feature)
+    
+    # Filter the DataFrame to only include the intuitive features
+    risk_features_to_plot = risk_features.loc[intuitive_risk_features]
+    # --- END OF NEW LOGIC ---
+
+    if risk_features_to_plot.empty:
         return None
 
     # Sort by SHAP value to have the most impactful at the top
-    risk_features = risk_features.sort_values('shap_value', ascending=True)
+    risk_features_to_plot = risk_features_to_plot.sort_values('shap_value', ascending=True)
     
     # Create the plot
-    fig, ax = plt.subplots(figsize=(8, len(risk_features) * 0.5 + 1))
-    ax.barh(risk_features.index, risk_features['shap_value'], color='#ff4d4d') # Use a consistent red color for risk
+    fig, ax = plt.subplots(figsize=(8, len(risk_features_to_plot) * 0.5 + 1))
+    ax.barh(risk_features_to_plot.index, risk_features_to_plot['shap_value'], color='#ff4d4d')
     ax.set_xlabel("Positive Impact on Prediction (SHAP value)")
     ax.set_title(f"Main Risk Factors for '{prediction_label}' Prediction")
     plt.tight_layout()
     
     return fig
-
-
-
 
 
 with explanation_col:
