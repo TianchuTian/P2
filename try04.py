@@ -166,7 +166,13 @@ def render_report_page():
     """
     Renders the full report page with plot and text explanations.
     """
-    st.markdown('<div class="title-font">Your Personalized Health Report</div>', unsafe_allow_html=True)
+
+    st.markdown("""<style>
+    .section-title { font-size: 24px; font-weight: bold; color: #0984e3; margin-top: 40px; margin-bottom: 20px; }
+    .footer { margin-top: 60px; text-align: center; font-size: 14px; color: #636e72; }
+    </style>""", unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Your Personalized Health Report</div>', unsafe_allow_html=True)
     
     # Retrieve user input from session state
     user_input = st.session_state.user_input
