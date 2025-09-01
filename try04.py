@@ -15,7 +15,6 @@ import shap
 import matplotlib.pyplot as plt
 import google.generativeai as genai
 
-st.set_page_config(layout="wide")
 # =============================================================================
 # 2. LOAD ARTIFACTS AND CONFIGURE API (Cached for performance)
 # =============================================================================
@@ -162,36 +161,10 @@ def render_report_page():
     Renders the full report page with plot and text explanations.
     """
 
-    st.markdown("""
-        <style>
-            .section-title {
-                font-size: 26px;
-                font-weight: 700;
-                color: #0984e3;
-                margin-top: 40px;
-                margin-bottom: 20px;
-            }
-            .report-box {
-                background-color: #ffffff;
-                padding: 25px 30px;
-                border-radius: 12px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-                font-size: 16px;
-                line-height: 1.7;
-                color: #2d3436;
-                max-width: 100%;
-            }
-            .report-box h1, .report-box h2, .report-box h3 {
-                color: #0984e3;
-            }
-            .report-box ul {
-                margin-left: 1.2rem;
-            }
-            .report-box strong {
-                color: #2c3e50;
-            }
-        </style>
-    """, unsafe_allow_html=True)
+    st.markdown("""<style>
+    .section-title { font-size: 24px; font-weight: bold; color: #0984e3; margin-top: 40px; margin-bottom: 20px; }
+    .footer { margin-top: 60px; text-align: center; font-size: 14px; color: #636e72; }
+    </style>""", unsafe_allow_html=True)
 
     st.markdown('<div class="section-title">💡 Your Personalized Health Report</div>', unsafe_allow_html=True)
     
@@ -284,8 +257,6 @@ def render_report_page():
             raw_text_for_ai += "\n\nOther Noteworthy Health Habits:\n- " + "\n- ".join(other_narratives)
         
         narrative_text = generate_narrative_with_gemini(raw_text_for_ai)
-        if narrative_text.startswith("#"):
-            narrative_text = "\n".join(narrative_text.split("\n")[1:]) 
         # --- END OF UNIFIED ANALYSIS ---
 
 
@@ -293,17 +264,15 @@ def render_report_page():
     st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
     
     st.markdown("#### Main Influential Factors (Personalized Chart)")
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        if risk_plot:
-            st.pyplot(risk_plot)
-        else:
-            st.write("No significant risk factors were identified.")
+    if risk_plot:
+        st.pyplot(risk_plot)
+    else:
+        st.write("No significant risk factors were identified by the model for this prediction.")
 
-    with col2:
-        st.markdown("#### AI-Powered Health Analysis")
-        st.markdown(f'<div class="report-box">{narrative_text}</div>', unsafe_allow_html=True)
-
+    st.markdown("#### AI-Powered Health Analysis")
+    st.info(narrative_text)
+    
+    # Add a button to go back to the input page
     if st.button("⬅️ Start a New Analysis"):
         st.session_state.view = 'input'
         st.rerun()
