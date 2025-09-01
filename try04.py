@@ -120,6 +120,8 @@ def get_analysis_data(user_input_dict):
     This function performs all heavy computations: prediction, SHAP, and AI call.
     It returns only data, with no Streamlit UI elements inside.
     """
+    user_input_dict = dict(user_input_tuple)
+    
     df_input = pd.DataFrame([user_input_dict])[feature_names]
     df_input_scaled = df_input.copy()
     df_input_scaled[numeric_cols] = scaler.transform(df_input_scaled[numeric_cols])
