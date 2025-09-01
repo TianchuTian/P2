@@ -255,7 +255,7 @@ def render_report_page():
     st.info(narrative_text)
     
     # Add a button to go back to the input page
-    if st.button("⬅️ Start Over"):
+    if st.button("⬅️ Start a New Analysis"):
         st.session_state.view = 'input'
         st.rerun()
 
