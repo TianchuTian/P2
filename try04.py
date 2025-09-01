@@ -9,16 +9,25 @@ import joblib
 # Set page configuration FIRST. This must be the first Streamlit command.
 st.set_page_config(page_title="Obesity Risk Predictor - Home", page_icon="🏠", layout="centered")
 
+# --- NEW: Navigation Logic ---
+# This block checks for a navigation flag at the very top of the script.
+if st.session_state.get("navigate_to_report", False):
+    # Reset the flag to False to prevent constant redirection
+    st.session_state.navigate_to_report = False
+    # Programmatically switch to the report page
+    st.switch_page("pages/1_📊_Report.py")
+# --- END OF NEW LOGIC ---
+
+# Initialize session state for user input if it doesn't exist.
+if 'user_input' not in st.session_state:
+    st.session_state.user_input = None
+
 # --- Load feature names for structuring the input ---
-# We only need the model file here to get the feature order.
 try:
     model = joblib.load("xgb_obesity_model.pkl")
     feature_names = model.feature_names_in_
-except FileNotFoundError:
-    st.error("Error: The model file ('xgb_obesity_model.pkl') was not found. Please ensure it's in your repository.")
-    st.stop()
 except Exception as e:
-    st.error(f"An error occurred while loading the model file: {e}")
+    st.error(f"Error loading necessary files: {e}")
     st.stop()
     
 # --- UI: Styling and Titles ---
@@ -78,8 +87,8 @@ with st.form("user_input_form"):
         # Store the complete input dictionary in session state to pass it to the report page
         st.session_state.user_input = input_dict
         
-        # Use st.switch_page for a seamless navigation experience to the report page.
-        # This requires Streamlit version 1.33 or higher.
-        st.switch_page("pages/1_📊_Report.py")
+        # Instead of calling switch_page directly, set the navigation flag to True.
+        # The app will rerun, and the logic at the top will handle the page switch.
+        st.session_state.navigate_to_report = True
 
 st.markdown('<div class="footer">Made with ❤️ by Your AI Assistant</div>', unsafe_allow_html=True)
