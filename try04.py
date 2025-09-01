@@ -15,6 +15,7 @@ import shap
 import matplotlib.pyplot as plt
 import google.generativeai as genai
 
+st.set_page_config(layout="wide")
 # =============================================================================
 # 2. LOAD ARTIFACTS AND CONFIGURE API (Cached for performance)
 # =============================================================================
