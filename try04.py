@@ -186,7 +186,7 @@ def render_report_page():
 
         # --- NEW UNIFIED ANALYSIS LOGIC ---
         # 1. First, identify ALL intuitive risk factors based on SHAP
-        all_risk_features = shap_df[shap_df['shap_value'] > 0.05].copy()
+        all_risk_features = shap_df[shap_df['shap_value'] > 0].copy()
         intuitive_risk_features_list = []
         for feature, row in all_risk_features.iterrows():
             feature_value = row['feature_value']
