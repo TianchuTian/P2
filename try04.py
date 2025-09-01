@@ -161,7 +161,6 @@ def render_report_page():
     Renders the full report page with plot and text explanations.
     """
 
-
     st.markdown("""<style>
     .section-title { font-size: 24px; font-weight: bold; color: #0984e3; margin-top: 40px; margin-bottom: 20px; }
     .footer { margin-top: 60px; text-align: center; font-size: 14px; color: #636e72; }
@@ -258,24 +257,23 @@ def render_report_page():
             raw_text_for_ai += "\n\nOther Noteworthy Health Habits:\n- " + "\n- ".join(other_narratives)
         
         narrative_text = generate_narrative_with_gemini(raw_text_for_ai)
-        # Remove unwanted top-level markdown title (e.g., "# Your Personalized Health Report")
-        if narrative_text.startswith("#"):
-            narrative_text = "\n".join(narrative_text.split("\n")[1:]) 
         # --- END OF UNIFIED ANALYSIS ---
 
-    # --- Display ---
-    st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
 
+    # --- Display the Final Report in the "Top-Down" layout ---
+    st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
+    
     st.markdown("#### Main Influential Factors (Personalized Chart)")
     if risk_plot:
         st.pyplot(risk_plot)
     else:
-        st.write("No significant risk factors identified.")
+        st.write("No significant risk factors were identified by the model for this prediction.")
 
     st.markdown("#### AI-Powered Health Analysis")
-    st.markdown(f'<div class="info-box">{narrative_text}</div>', unsafe_allow_html=True)
+    st.info(narrative_text)
 
-    # Export as PDF Button
+
+     # Export as PDF Button
     if st.button("📄 Export as PDF"):
         cleaned_text = narrative_text.replace("##", "").replace("**", "")
         pdf_path = "/mnt/data/health_report.pdf"
@@ -288,7 +286,6 @@ def render_report_page():
         doc.build(story)
         st.success("PDF report exported successfully!")
         st.markdown(f"👉 [**Download PDF**]({pdf_path})")
-
     
     # Add a button to go back to the input page
     if st.button("⬅️ Start a New Analysis"):
