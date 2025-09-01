@@ -257,6 +257,9 @@ def render_report_page():
             raw_text_for_ai += "\n\nOther Noteworthy Health Habits:\n- " + "\n- ".join(other_narratives)
         
         narrative_text = generate_narrative_with_gemini(raw_text_for_ai)
+        # Remove unwanted top-level markdown title 
+        if narrative_text.startswith("#"):
+            narrative_text = "\n".join(narrative_text.split("\n")[1:])
         # --- END OF UNIFIED ANALYSIS ---
 
 
