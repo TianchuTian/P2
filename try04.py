@@ -161,32 +161,25 @@ def render_report_page():
     Renders the full report page with plot and text explanations.
     """
 
-    st.markdown("""
-    <style>
-        .report-box {
-            background-color: #fdfefe;
+   st.markdown("""
+        <style>
+        .info-box {
+            background-color: #eaf4ff;
+            border-left: 6px solid #74b9ff;
             padding: 25px 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+            border-radius: 10px;
             font-size: 16px;
             line-height: 1.7;
             color: #2d3436;
-            max-width: 100%;
+            margin-top: 20px;
         }
-        .report-box h1, .report-box h2, .report-box h3, .report-box h4, .report-box h5, .report-box h6 {
-            font-size: 20px;
-            font-weight: 700;
+        .info-box h1, .info-box h2, .info-box h3 {
             color: #2c3e50;
             margin-top: 1.4em;
-            margin-bottom: 0.6em;
+            margin-bottom: 0.5em;
+            font-weight: bold;
         }
-        .report-box ul {
-            margin-left: 1.4rem;
-        }
-        .report-box strong {
-            color: #2d3436;
-        }
-    </style>
+        </style>
     """, unsafe_allow_html=True)
 
     st.markdown("""<style>
@@ -292,17 +285,42 @@ def render_report_page():
 
 
     # --- Display the Final Report in the "Top-Down" layout ---
+   replacements = {
+        "## Summary": "## 🧠 Summary",
+        "## Key Insights": "## 📌 Key Insights",
+        "## Other Factors": "## 📌 Other Factors",
+        "## Other Important Factors": "## 📌 Other Factors",
+        "## Recommendations": "## 📌 Recommendations",
+        "## Recommendations for a Healthier You": "## 📌 Recommendations",
+    }
+    for old, new in replacements.items():
+        narrative_text = narrative_text.replace(old, new)
+
+    # --- Display ---
     st.success(f"✅ Your predicted obesity category is: **{prediction_label}**")
-    
+
     st.markdown("#### Main Influential Factors (Personalized Chart)")
     if risk_plot:
         st.pyplot(risk_plot)
     else:
-        st.write("No significant risk factors were identified by the model for this prediction.")
+        st.write("No significant risk factors identified.")
 
     st.markdown("#### AI-Powered Health Analysis")
-    #st.info(narrative_text)
-    st.markdown(f'<div class="report-box">{narrative_text}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="info-box">{narrative_text}</div>', unsafe_allow_html=True)
+
+    # Export as PDF Button
+    if st.button("📄 Export as PDF"):
+        cleaned_text = narrative_text.replace("##", "").replace("**", "")
+        pdf_path = "/mnt/data/health_report.pdf"
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+        styles = getSampleStyleSheet()
+        story = []
+        for paragraph in cleaned_text.strip().split("\n\n"):
+            story.append(Paragraph(paragraph.strip(), styles["Normal"]))
+            story.append(Spacer(1, 12))
+        doc.build(story)
+        st.success("PDF report exported successfully!")
+        st.markdown(f"👉 [**Download PDF**]({pdf_path})")
 
     
     # Add a button to go back to the input page
