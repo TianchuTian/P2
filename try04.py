@@ -51,6 +51,7 @@ label_mapping = {
     6: "Obesity_Type_III"
 }
 one_hot_prefixes = ['CAEC_', 'CALC_', 'MTRANS_']
+binary_risk_on_one = ['family_history_with_overweight', 'FAVC']
 
 # --- Helper function to generate the personalized "Risk Factors" bar plot ---
 @st.cache_data
@@ -58,15 +59,30 @@ def generate_risk_factors_plot(_shap_df, prediction_label):
     risk_features = _shap_df[_shap_df['shap_value'] > 0.05].copy()
     intuitive_risk_features = []
     for feature, row in risk_features.iterrows():
+        feature_value = row['feature_value']
+        
+        # --- NEW LOGIC FOR BINARY FEATURES ---
+        if feature in binary_risk_on_one:
+            # For these features, only show them as risks if the user input was 1 (e.g., "yes")
+            if feature_value == 1:
+                intuitive_risk_features.append(feature)
+            continue # Move to the next feature
+        # --- END OF NEW LOGIC ---
+
         is_one_hot = any(prefix in feature for prefix in one_hot_prefixes)
         if is_one_hot:
-            if row['feature_value'] == 1:
+            if feature_value == 1:
                 intuitive_risk_features.append(feature)
         else:
             intuitive_risk_features.append(feature)
+            
+    if not intuitive_risk_features:
+        return None
+        
     risk_features_to_plot = risk_features.loc[intuitive_risk_features]
     if risk_features_to_plot.empty:
         return None
+        
     risk_features_to_plot = risk_features_to_plot.sort_values('shap_value', ascending=True)
     fig, ax = plt.subplots(figsize=(10, len(risk_features_to_plot) * 0.4 + 1.5))
     ax.barh(risk_features_to_plot.index, risk_features_to_plot['shap_value'], color='#ff4d4d')
