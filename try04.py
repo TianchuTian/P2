@@ -285,20 +285,40 @@ def render_report_page():
     st.markdown("#### AI-Powered Health Analysis")
     st.info(narrative_text)
 
+    # --- Export as PDF (English) ---
+    st.markdown("")  # 小间距
+    if not REPORTLAB_OK:
+        st.warning("PDF export requires the 'reportlab' package. Please add `reportlab` to requirements.txt and redeploy.")
+    else:
+        if st.button("📄 Export as PDF"):
+            # 1) 从 narrative_text 生成纯文本（去掉 markdown 符号即可；也可更精细处理）
+            text_for_pdf = (
+                narrative_text
+                .replace("**", "")
+                .replace("## ", "")    # 去掉二级标题标记
+                .replace("### ", "")   # 以防万一
+            )
 
-     # Export as PDF Button
-    if st.button("📄 Export as PDF"):
-        cleaned_text = narrative_text.replace("##", "").replace("**", "")
-        pdf_path = "/mnt/data/health_report.pdf"
-        doc = SimpleDocTemplate(pdf_path, pagesize=letter)
-        styles = getSampleStyleSheet()
-        story = []
-        for paragraph in cleaned_text.strip().split("\n\n"):
-            story.append(Paragraph(paragraph.strip(), styles["Normal"]))
-            story.append(Spacer(1, 12))
-        doc.build(story)
-        st.success("PDF report exported successfully!")
-        st.markdown(f"👉 [**Download PDF**]({pdf_path})")
+            # 2) 用内存缓冲区生成 PDF（避免磁盘路径/权限问题）
+            buf = BytesIO()
+            doc = SimpleDocTemplate(buf, pagesize=letter)
+            styles = getSampleStyleSheet()
+            story = []
+            for para in [p.strip() for p in text_for_pdf.split("\n\n") if p.strip()]:
+                story.append(Paragraph(para, styles["Normal"]))
+                story.append(Spacer(1, 12))
+            doc.build(story)
+            buf.seek(0)
+
+            # 3) 提供下载按钮（文件名带预测标签）
+            st.success("PDF report generated successfully.")
+            st.download_button(
+                label="Download PDF",
+                data=buf,
+                file_name=f"health_report_{prediction_label}.pdf",
+                mime="application/pdf"
+            )
+
     
     # Add a button to go back to the input page
     if st.button("⬅️ Start a New Analysis"):
