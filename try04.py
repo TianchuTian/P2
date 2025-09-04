@@ -15,6 +15,16 @@ import shap
 import matplotlib.pyplot as plt
 import google.generativeai as genai
 
+# PDF export deps
+from io import BytesIO
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    REPORTLAB_OK = True
+except Exception:
+    REPORTLAB_OK = False
+
 # =============================================================================
 # 2. LOAD ARTIFACTS AND CONFIGURE API (Cached for performance)
 # =============================================================================
