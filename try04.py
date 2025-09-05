@@ -286,20 +286,20 @@ def render_report_page():
     st.info(narrative_text)
 
     # --- Export as PDF (English) ---
-    st.markdown("")  # 小间距
+    st.markdown("")  
     if not REPORTLAB_OK:
         st.warning("PDF export requires the 'reportlab' package. Please add `reportlab` to requirements.txt and redeploy.")
     else:
         if st.button("📄 Export as PDF"):
-            # 1) 从 narrative_text 生成纯文本（去掉 markdown 符号即可；也可更精细处理）
+            # 1) 
             text_for_pdf = (
                 narrative_text
                 .replace("**", "")
-                .replace("## ", "")    # 去掉二级标题标记
-                .replace("### ", "")   # 以防万一
+                .replace("## ", "")    
+                .replace("### ", "")   
             )
 
-            # 2) 用内存缓冲区生成 PDF（避免磁盘路径/权限问题）
+            # 2) 
             buf = BytesIO()
             doc = SimpleDocTemplate(buf, pagesize=letter)
             styles = getSampleStyleSheet()
@@ -310,7 +310,7 @@ def render_report_page():
             doc.build(story)
             buf.seek(0)
 
-            # 3) 提供下载按钮（文件名带预测标签）
+            # 3) 
             st.success("PDF report generated successfully.")
             st.download_button(
                 label="Download PDF",
